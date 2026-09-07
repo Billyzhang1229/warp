@@ -455,6 +455,7 @@ fn in_memory_theme_generation_test() {
                     content_version: None,
                 },
                 opacity: 30,
+                shader: None,
             }),
             Some("mountains".to_string()),
         )
@@ -480,6 +481,7 @@ fn in_memory_theme_generation_test() {
                     content_version: None,
                 },
                 opacity: 30,
+                shader: None,
             }),
             Some("mountains".to_string()),
         )

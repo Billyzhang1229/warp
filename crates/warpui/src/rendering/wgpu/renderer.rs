@@ -31,7 +31,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(resources: &Resources, glyph_config: GlyphConfig) -> Self {
-        let Resources { device, .. } = resources;
+        let Resources { device, queue, .. } = resources;
 
         let format = resources.surface_config.borrow().format;
         let color_target = wgpu::ColorTargetState {
@@ -53,8 +53,12 @@ impl Renderer {
             glyph_config,
         );
 
-        let image_pipeline =
-            image::Pipeline::new(resources.uniform_bind_group_layout(), device, color_target);
+        let image_pipeline = image::Pipeline::new(
+            resources.uniform_bind_group_layout(),
+            device,
+            queue,
+            color_target,
+        );
 
         Self {
             rect_pipeline,

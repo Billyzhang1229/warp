@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use warpui_core::assets::asset_cache::AssetSource;
 use warpui_core::color::ColorU;
 use warpui_core::geometry::vector::vec2f;
+use warpui_core::rendering::dither::DitherConfig;
 
 use self::color::CustomDetails;
 use super::color::blend::Blend;
@@ -17,10 +18,17 @@ use crate::paths::themes_dir;
 // Import relative_luminance from contrast module for brightness calculation
 use crate::ui::color::contrast::relative_luminance;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum BackgroundShader {
+    Dither(DitherConfig),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Image {
     pub source: AssetSource,
     pub opacity: Opacity,
+    pub shader: Option<BackgroundShader>,
 }
 
 /// This is a helper struct used for deserialization.
@@ -29,6 +37,8 @@ struct SerializedBackgroundThemeImage {
     path: String,
     #[serde(default = "default_image_opacity")]
     pub opacity: Opacity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    shader: Option<BackgroundShader>,
 }
 
 impl Serialize for Image {
@@ -47,6 +57,7 @@ impl Serialize for Image {
         let serialized = SerializedBackgroundThemeImage {
             path,
             opacity: self.opacity,
+            shader: self.shader,
         };
 
         serialized.serialize(serializer)
@@ -78,6 +89,7 @@ impl<'de> Deserialize<'de> for Image {
                 content_version: None,
             },
             opacity: value.opacity,
+            shader: value.shader,
         })
     }
 }

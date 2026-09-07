@@ -111,6 +111,7 @@ pub struct Image {
     pub asset: Arc<StaticImage>,
     pub opacity: f32,
     pub corner_radius: CornerRadius,
+    pub dither: Option<[f32; 4]>,
 }
 
 #[derive(Clone)]
@@ -593,6 +594,17 @@ impl Scene {
         opacity: f32,
         corner_radius: CornerRadius,
     ) {
+        self.draw_image_with_dither(rect, asset, opacity, corner_radius, None);
+    }
+
+    pub fn draw_image_with_dither(
+        &mut self,
+        rect: RectF,
+        asset: Arc<StaticImage>,
+        opacity: f32,
+        corner_radius: CornerRadius,
+        dither: Option<[f32; 4]>,
+    ) {
         #[cfg(debug_assertions)]
         let location = self.panic_location.take();
         #[cfg(not(debug_assertions))]
@@ -605,6 +617,7 @@ impl Scene {
             asset,
             opacity,
             corner_radius,
+            dither,
         });
         layer.record_hit_rect(rect);
     }

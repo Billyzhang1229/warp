@@ -8,7 +8,7 @@ use instant::Instant;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use pathfinder_geometry::rect::RectF;
-use pathfinder_geometry::vector::{Vector2F, Vector2I, vec2f};
+use pathfinder_geometry::vector::{Vector2F, vec2f};
 use warp_errors::report_error;
 
 use super::{CornerRadius, Element, Point};
@@ -16,9 +16,10 @@ use crate::assets::asset_cache::{AssetCache, AssetSource, AssetState};
 use crate::event::DispatchedEvent;
 pub use crate::image_cache::CacheOption;
 use crate::image_cache::{AnimatedImage, AnimatedImageBehavior, FitType, ImageCache, StaticImage};
+use crate::rendering::dither::DitherConfig;
 use crate::{
     AfterLayoutContext, AppContext, EventContext, LayoutContext, PaintContext, SingletonEntity,
-    SizeConstraint,
+    SizeConstraint, WindowId,
 };
 
 lazy_static! {
@@ -37,8 +38,15 @@ enum BackupElementKind {
     LoadTimeout,
 }
 
+struct DitherAnimation {
+    config: DitherConfig,
+    started_at: Instant,
+    window_id: WindowId,
+}
+
 pub struct Image {
     source: AssetSource,
+    dither: Option<DitherAnimation>,
     opacity: f32,
     size: Option<Vector2F>,
     origin: Option<Point>,
@@ -82,6 +90,7 @@ impl Image {
     pub fn new(source: AssetSource, cache_option: CacheOption) -> Self {
         Self {
             source,
+            dither: None,
             opacity: 1.,
             size: None,
             origin: None,
@@ -100,6 +109,26 @@ impl Image {
             #[cfg(debug_assertions)]
             constructor_location: Some(std::panic::Location::caller()),
         }
+    }
+
+    /// Enables the background effect; callers must first check renderer support.
+    pub fn with_dither(
+        mut self,
+        config: DitherConfig,
+        started_at: Instant,
+        window_id: WindowId,
+    ) -> Self {
+        if config.strength > 0 {
+            // Cropping happens in the shader so its grid stays anchored to the element bounds.
+            self.fit_type = FitType::Stretch;
+            self.animated_image_behavior = AnimatedImageBehavior::FirstFramePreview;
+            self.dither = Some(DitherAnimation {
+                config,
+                started_at,
+                window_id,
+            });
+        }
+        self
     }
 
     pub fn with_corner_radius(mut self, radius: CornerRadius) -> Self {
@@ -271,9 +300,10 @@ impl Image {
         image: Arc<StaticImage>,
         size: Vector2F,
         origin: Vector2F,
-        bounds: Vector2I,
         ctx: &mut PaintContext,
+        app: &AppContext,
     ) {
+        let bounds = (size * ctx.scene.scale_factor()).to_i32();
         let desired_image_size = match self.cache_option {
             CacheOption::Original => {
                 dimensions(image.size().to_f32(), bounds.to_f32(), self.fit_type)
@@ -315,8 +345,18 @@ impl Image {
         ctx.scene
             .set_location_for_panic_logging(self.constructor_location);
 
+        let dither = self.dither.as_ref().map(|animation| {
+            let active = app.windows().app_is_active()
+                && app.windows().active_window() == Some(animation.window_id);
+            if animation.config.should_animate(active) {
+                ctx.repaint_after(DitherConfig::FRAME_INTERVAL);
+            }
+            animation
+                .config
+                .parameters(animation.started_at.elapsed(), ctx.scene.scale_factor())
+        });
         ctx.scene
-            .draw_image(rect, image, self.opacity, self.corner_radius);
+            .draw_image_with_dither(rect, image, self.opacity, self.corner_radius, dither);
     }
 
     fn paint_animated_image(
@@ -324,8 +364,8 @@ impl Image {
         animated_image: Arc<AnimatedImage>,
         size: Vector2F,
         origin: Vector2F,
-        bounds: Vector2I,
         ctx: &mut PaintContext,
+        app: &AppContext,
     ) {
         // If self.started_at is not provided, we set it to current time
         // so only the first frame is shown.
@@ -339,7 +379,7 @@ impl Image {
             .context("Unable to retrieve current frame from image")
         {
             Ok((frame, remaining_delay)) => {
-                self.paint_static_image(frame.clone(), size, origin, bounds, ctx);
+                self.paint_static_image(frame.clone(), size, origin, ctx, app);
                 // Only repaint if self.started_at is set. Otherwise
                 // enable_animation_with_start_time has not been called
                 // and we shouldn't animate.
@@ -520,10 +560,10 @@ impl Element for Image {
 
                 match data.as_ref() {
                     crate::image_cache::Image::Static(static_image) => {
-                        self.paint_static_image(static_image.clone(), size, origin, bounds, ctx)
+                        self.paint_static_image(static_image.clone(), size, origin, ctx, app)
                     }
                     crate::image_cache::Image::Animated(animated_image) => {
-                        self.paint_animated_image(animated_image.clone(), size, origin, bounds, ctx)
+                        self.paint_animated_image(animated_image.clone(), size, origin, ctx, app)
                     }
                 }
             }

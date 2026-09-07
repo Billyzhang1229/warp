@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Launch the locally built macOS preview with its own theme and settings profile.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+WARP_DITHER_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target}"
+WARP_DITHER_BINARY="$WARP_DITHER_TARGET_DIR/debug/bundle/osx/WarpOss.app/Contents/MacOS/warp-oss"
+if [[ ! -x "$WARP_DITHER_BINARY" ]]; then
+    echo 'Build WarpOss first:' >&2
+    echo '  WARP_SKIP_COMMON_SKILLS_INSTALL=1 ./script/run --features warpui/experimental-wgpu-renderer --dont-open --format osx' >&2
+    exit 1
+fi
+
+export WARP_DATA_PROFILE=dither
+WARP_DITHER_CONFIG="$HOME/.warp-oss-dither"
+mkdir -p "$WARP_DITHER_CONFIG/themes"
+for asset in capy-dither.yaml capy-dither.webp; do
+    if [[ ! -e "$WARP_DITHER_CONFIG/themes/$asset" ]]; then
+        cp "$REPO_ROOT/resources/themes/$asset" "$WARP_DITHER_CONFIG/themes/$asset"
+    fi
+done
+if [[ ! -e "$WARP_DITHER_CONFIG/settings.toml" ]]; then
+    cat > "$WARP_DITHER_CONFIG/settings.toml" <<'TOML'
+[appearance.themes]
+theme = { custom = { name = "Capy Dither", path = "capy-dither.yaml" } }
+system_theme = false
+TOML
+fi
+exec "$WARP_DITHER_BINARY" "$@"

@@ -342,3 +342,43 @@ fn infer_from_foreground_color_test() {
         ColorScheme::DarkOnLight
     );
 }
+
+#[test]
+fn background_shader_round_trips_with_parameters() {
+    let image: Image = serde_yaml::from_str("path: /tmp/portrait.jpg\nshader:\n  kind: dither\n  pixel_size: 6\n  strength: 80\n  animated: false\n").unwrap();
+    assert_eq!(
+        image.shader,
+        Some(BackgroundShader::Dither(DitherConfig {
+            pixel_size: 6,
+            strength: 80,
+            animated: false
+        }))
+    );
+    let encoded = serde_yaml::to_string(&image).unwrap();
+    assert_eq!(serde_yaml::from_str::<Image>(&encoded).unwrap(), image);
+}
+
+#[test]
+fn background_shader_uses_defaults_when_only_kind_is_set() {
+    let image: Image =
+        serde_yaml::from_str("path: /tmp/portrait.jpg\nshader:\n  kind: dither\n").unwrap();
+    assert_eq!(
+        image.shader,
+        Some(BackgroundShader::Dither(DitherConfig::default()))
+    );
+}
+
+#[test]
+fn legacy_background_image_keeps_shader_disabled() {
+    let image: Image = serde_yaml::from_str("path: /tmp/portrait.jpg\nopacity: 40\n").unwrap();
+    assert_eq!(image.shader, None);
+    assert!(!serde_yaml::to_string(&image).unwrap().contains("shader"));
+}
+
+#[test]
+fn unknown_background_shader_is_rejected() {
+    assert!(
+        serde_yaml::from_str::<Image>("path: /tmp/portrait.jpg\nshader:\n  kind: missing\n")
+            .is_err()
+    );
+}

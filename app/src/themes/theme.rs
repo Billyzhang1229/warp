@@ -451,6 +451,7 @@ impl InMemoryThemeOptions {
                     content_version: None,
                 },
                 opacity: 30,
+                shader: None,
             }),
             Some(self.name()),
         )

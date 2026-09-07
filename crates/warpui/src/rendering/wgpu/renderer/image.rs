@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use wgpu::util::BufferInitDescriptor;
+use wgpu::util::{BufferInitDescriptor, DeviceExt, TextureDataOrder};
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupLayout, ColorTargetState, Device, Extent3d,
     FilterMode, RenderPass, RenderPipeline, Sampler, TextureDescriptor, TextureFormat,
@@ -23,6 +23,7 @@ pub(super) struct Pipeline {
     texture_cache: TextureCache<TextureInfo>,
     texture_bind_group_layout: BindGroupLayout,
     sampler: Sampler,
+    noise_bind_group: BindGroup,
 }
 
 #[derive(Default)]
@@ -40,12 +41,15 @@ impl Pipeline {
     pub(super) fn new(
         uniform_bind_group_layout: &BindGroupLayout,
         device: &Device,
+        queue: &wgpu::Queue,
         color_target: ColorTargetState,
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Image Shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "../shaders/image_shader.wgsl"
+            source: wgpu::ShaderSource::Wgsl(Cow::Owned(format!(
+                "{}\n{}",
+                include_str!("../shaders/image_shader.wgsl"),
+                include_str!("../shaders/dither.wgsl"),
             ))),
         });
 
@@ -74,11 +78,54 @@ impl Pipeline {
                 label: Some("texture_bind_group_layout"),
             });
 
+        let noise_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Dither noise layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    multisampled: false,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                },
+                count: None,
+            }],
+        });
+        let noise = device.create_texture_with_data(
+            queue,
+            &TextureDescriptor {
+                label: Some("Dither blue noise"),
+                size: Extent3d {
+                    width: 128,
+                    height: 128,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: TextureFormat::R8Unorm,
+                usage: TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            TextureDataOrder::LayerMajor,
+            include_bytes!("../shaders/blue-noise-128.bin"),
+        );
+        let noise_view = noise.create_view(&Default::default());
+        let noise_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("Dither noise"),
+            layout: &noise_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&noise_view),
+            }],
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Image pipeline layout"),
             bind_group_layouts: &[
                 Some(uniform_bind_group_layout),
                 Some(&texture_bind_group_layout),
+                Some(&noise_layout),
             ],
             immediate_size: 0,
         });
@@ -121,6 +168,7 @@ impl Pipeline {
             texture_cache: TextureCache::new(),
             texture_bind_group_layout,
             sampler,
+            noise_bind_group,
         }
     }
 
@@ -156,6 +204,7 @@ impl Pipeline {
                     opacity: (image.opacity * 255.) as u8,
                 },
                 corner_radius,
+                image.dither.unwrap_or([0.0; 4]),
             ));
             let (texture_id, _) =
                 self.texture_cache
@@ -170,6 +219,7 @@ impl Pipeline {
                 icon.bounds * scale_factor,
                 ColorModifier::Icon { color: icon.color },
                 crate::rendering::CornerRadius::default(),
+                [0.0; 4],
             ));
             let (texture_id, _) = self
                 .texture_cache
@@ -210,6 +260,7 @@ impl Pipeline {
         };
 
         render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(2, &self.noise_bind_group, &[]);
         render_pass.set_vertex_buffer(1, buffer.slice(..));
 
         for (index, texture_id) in layer_state.image_textures.iter().enumerate() {
@@ -334,23 +385,27 @@ mod shaders {
         color: ColorF,
         is_icon: u32,
         corner_radius: Vector4F,
+        dither: [f32; 4],
     }
 
     impl ImageInstanceData {
-        const ATTRIBS: [wgpu::VertexAttribute; 4] = wgpu::vertex_attr_array![
+        const ATTRIBS: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
             1 => Float32x4,    // Bounds
             2 => Float32x4,    // Color
             3 => Uint32,       // Boolean, image or icon
             4 => Float32x4,    // Corner radius
+            5 => Float32x4,    // Dither time, strength, pixel size, motion
         ];
 
         pub(super) fn new(
             bounds: RectF,
             color_modifier: ColorModifier,
             corner_radius: CornerRadius,
+            dither: [f32; 4],
         ) -> Self {
             Self {
                 bounds: bounds.into(),
+                dither,
                 is_icon: matches!(color_modifier, ColorModifier::Icon { .. }).into(),
                 color: color_modifier.into(),
                 corner_radius: vec4f(
@@ -373,3 +428,7 @@ mod shaders {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "image_tests.rs"]
+mod tests;
