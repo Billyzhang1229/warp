@@ -419,6 +419,7 @@ pub(super) fn phenomenon() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/phenomenon_bg.jpg"),
             opacity: 100,
+            shader: None,
         }),
         Some("Phenomenon".to_string()),
     )
@@ -436,6 +437,7 @@ pub(super) fn jellyfish() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/jellyfish_bg.jpg"),
             opacity: 30,
+            shader: None,
         }),
         Some("Jellyfish".to_string()),
     )
@@ -452,6 +454,7 @@ pub(super) fn koi() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/koi_bg.jpg"),
             opacity: 30,
+            shader: None,
         }),
         Some("Koi".to_string()),
     )
@@ -468,6 +471,7 @@ pub(super) fn leafy() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/leafy_bg.jpg"),
             opacity: 30,
+            shader: None,
         }),
         Some("Leafy".to_string()),
     )
@@ -484,6 +488,7 @@ pub(super) fn marble() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/marble_bg.jpg"),
             opacity: 50,
+            shader: None,
         }),
         Some("Marble".to_string()),
     )
@@ -503,6 +508,7 @@ pub(super) fn pink_city() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/pink_city_bg.jpg"),
             opacity: 40,
+            shader: None,
         }),
         Some("Pink City".to_string()),
     )
@@ -522,6 +528,7 @@ pub(super) fn snowy() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/snowy_bg.jpg"),
             opacity: 20,
+            shader: None,
         }),
         Some("Snowy".to_string()),
     )
@@ -543,6 +550,7 @@ pub(super) fn red_rock() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/red_rock_bg.jpg"),
             opacity: 30,
+            shader: None,
         }),
         Some("Red Rock".to_string()),
     )
@@ -564,6 +572,7 @@ pub(super) fn dark_city() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/dark_city_bg.jpg"),
             opacity: 20,
+            shader: None,
         }),
         Some("Dark City".to_string()),
     )
@@ -580,6 +589,7 @@ pub(super) fn sent_referral_reward() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/sent_referral_reward_bg.jpg"),
             opacity: 100,
+            shader: None,
         }),
         Some("Warp Referral".to_string()),
     )
@@ -596,6 +606,7 @@ pub(super) fn solar_flare() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/solarflare_bg.jpg"),
             opacity: 20,
+            shader: None,
         }),
         Some("Solar Flare".to_string()),
     )
@@ -625,6 +636,7 @@ pub(super) fn received_referral_reward() -> WarpTheme {
         Some(Image {
             source: bundled_or_fetched_asset!("jpg/received_referral_reward_bg.jpg"),
             opacity: 100,
+            shader: None,
         }),
         Some("Received Referral Reward".to_string()),
     )

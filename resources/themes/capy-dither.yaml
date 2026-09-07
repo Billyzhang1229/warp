@@ -1,0 +1,32 @@
+name: Capy Dither
+accent: '#b79de8'
+background: '#100e18'
+foreground: '#eee8f5'
+details: darker
+background_image:
+  path: capy-dither.webp
+  opacity: 85
+  shader:
+    kind: dither
+    pixel_size: 4
+    strength: 100
+    animated: true
+terminal_colors:
+  normal:
+    black: '#201b2c'
+    red: '#e990a5'
+    green: '#acd4b2'
+    yellow: '#e8d4a4'
+    blue: '#a6bbed'
+    magenta: '#c4a5e9'
+    cyan: '#a5d5dd'
+    white: '#ddd6e8'
+  bright:
+    black: '#71677e'
+    red: '#ffafbf'
+    green: '#c8edca'
+    yellow: '#fce7b5'
+    blue: '#c3d3ff'
+    magenta: '#dfc0ff'
+    cyan: '#c7f1f6'
+    white: '#fff6ff'

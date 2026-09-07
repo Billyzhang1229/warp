@@ -454,6 +454,7 @@ fn in_memory_theme_generation_test() {
                     path: mountains_bg_path_string.clone()
                 },
                 opacity: 30,
+                shader: None,
             }),
             Some("mountains".to_string()),
         )
@@ -478,6 +479,7 @@ fn in_memory_theme_generation_test() {
                     path: mountains_bg_path_string
                 },
                 opacity: 30,
+                shader: None,
             }),
             Some("mountains".to_string()),
         )

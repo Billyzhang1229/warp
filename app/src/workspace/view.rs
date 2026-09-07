@@ -406,7 +406,7 @@ use crate::terminal::view::{
 };
 use crate::terminal::warpify::settings::WarpifySettings;
 use crate::terminal::{self, BlockListSettings, SizeInfo, TerminalModel, TerminalView};
-use crate::themes::theme::{AnsiColorIdentifier, RespectSystemTheme, ThemeKind};
+use crate::themes::theme::{AnsiColorIdentifier, BackgroundShader, RespectSystemTheme, ThemeKind};
 use crate::themes::theme_chooser::{ThemeChooser, ThemeChooserEvent, ThemeChooserMode};
 use crate::themes::theme_creator_modal::{ThemeCreatorModal, ThemeCreatorModalEvent};
 use crate::themes::theme_deletion_modal::{ThemeDeletionModal, ThemeDeletionModalEvent};
@@ -25535,26 +25535,37 @@ impl View for Workspace {
             .background_opacity
             .effective_opacity(self.window_id, app);
 
-        if let Some(img) = theme.background_image() {
-            let opacity_ratio = background_opacity as f32 / 100.;
-            stack.add_child(
-                Shrinkable::new(
-                    1.,
-                    Image::new(img.source(), CacheOption::Original)
-                        .cover()
-                        .with_opacity(opacity_ratio)
-                        .with_corner_radius(window_corner_radius)
+        match theme.background_image() {
+            Some(img) => {
+                let opacity_ratio = background_opacity as f32 / 100.;
+                let mut background = Image::new(img.source(), CacheOption::Original)
+                    .cover()
+                    .with_opacity(opacity_ratio)
+                    .with_corner_radius(window_corner_radius)
+                    .enable_animation_with_start_time(self.background_image_animation_start_time);
+                if warpui::SUPPORTS_BACKGROUND_SHADERS
+                    && let Some(shader) = img.shader
+                {
+                    match shader {
+                        BackgroundShader::Dither(config) => {
+                            background = background.with_dither(
+                                config,
+                                self.background_image_animation_start_time,
+                                self.window_id,
+                            );
+                        }
+                    }
+                }
+                stack.add_child(Shrinkable::new(1., background.finish()).finish());
+                stack.add_child(workspace.finish());
+            }
+            _ => {
+                stack.add_child(
+                    workspace
+                        .with_background(theme.surface_2().with_opacity(background_opacity))
                         .finish(),
-                )
-                .finish(),
-            );
-            stack.add_child(workspace.finish());
-        } else {
-            stack.add_child(
-                workspace
-                    .with_background(theme.surface_2().with_opacity(background_opacity))
-                    .finish(),
-            );
+                );
+            }
         }
 
         let input_position_id = self

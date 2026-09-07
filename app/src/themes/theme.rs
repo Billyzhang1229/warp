@@ -450,6 +450,7 @@ impl InMemoryThemeOptions {
                     path: self.path().to_str().unwrap_or_default().to_owned(),
                 },
                 opacity: 30,
+                shader: None,
             }),
             Some(self.name()),
         )
