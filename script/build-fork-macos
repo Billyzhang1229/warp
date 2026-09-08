@@ -12,7 +12,8 @@ pinned_commit=$(python3 -c 'import json; print(json.load(open(".github/upstream-
 git merge-base --is-ancestor "$pinned_commit" HEAD
 (
     cd app
-    cargo bundle --locked --release --format osx --bin warp-oss --features gui,warpui/experimental-wgpu-renderer
+    cargo build --locked --release --bin warp-oss --features gui,warpui/experimental-wgpu-renderer
+    CARGO_NET_OFFLINE=true cargo bundle --release --format osx --bin warp-oss --features gui,warpui/experimental-wgpu-renderer
 )
 app_bundle="$CARGO_TARGET_DIR/release/bundle/osx/WarpOss.app"
 export WARP_PLIST_PATH="$app_bundle/Contents/Info.plist"
