@@ -20,7 +20,9 @@ Download `WarpOss-macos-arm64-<commit>` from a successful run's **Artifacts**.
 The archive contains `WarpOss-macos-arm64.zip` and its SHA-256 checksum. Unzip the
 inner ZIP to obtain `WarpOss.app`. Artifacts expire after 14 days.
 
-The app uses the separate WarpOss application identity. It is ad-hoc signed,
+The app uses the separate WarpOss application identity and the normal
+`~/.warp-oss` data profile. Optimized release builds ignore `WARP_DATA_PROFILE`;
+it cannot isolate GUI testing of this artifact. It is ad-hoc signed,
 not Apple notarized; macOS may require Open Anyway in Privacy & Security.
 `release` is the Cargo optimization profile; `oss` is the application channel;
 the upstream **source revision** is the pinned stable release. No private Warp
@@ -79,3 +81,9 @@ with warnings denied; repository Rust formatting; actionlint and shell syntax.
 The GPU test covers neutral colors, grayscale, alpha, crop coordinates, masks,
 zero-strength Dither and static/animated output. Cloud artifact verification is
 recorded by the build Action itself.
+
+The same packaging script also completed locally on Apple M4 Pro: the cold
+optimized build took 12m 46s and produced a 122 MB ZIP. Ad-hoc signature and
+SHA-256 verification passed. The preserved app and ZIP are under
+`target/fork-stable/`. A brief launch opened the normal WarpOss profile and was
+closed without proceeding with settings interactions.
