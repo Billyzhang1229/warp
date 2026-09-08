@@ -74,7 +74,7 @@ Previous development-branch GUI/performance evidence does not validate this
 older stable build. Full interactive and performance verification remains
 separate from compilation and shader tests.
 
-Stable-port validation passed: 31 distinct Rust tests across the background and
+Stable-port validation passed: 29 distinct Rust tests across the background and
 Dither filters, including the explicit image-output test on Apple M4 Pro /
 Metal; six Python release-selection/merge tests; WGSL validation; scoped Clippy
 with warnings denied; repository Rust formatting; actionlint and shell syntax.
