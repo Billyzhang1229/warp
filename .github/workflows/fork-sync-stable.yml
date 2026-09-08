@@ -1,0 +1,50 @@
+name: Sync upstream stable
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-sync-stable
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'Billyzhang1229/warp'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      commit: ${{ steps.sync.outputs.commit }}
+      changed: ${{ steps.sync.outputs.changed }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: stable/dither
+          fetch-depth: 0
+      - name: Validate stable selection
+        run: python3 script/test_sync_upstream_stable.py
+      - name: Merge only the latest stable release
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          before=$(git rev-parse HEAD)
+          python3 script/sync-upstream-stable.py --merge
+          after=$(git rev-parse HEAD)
+          echo "commit=$after" >> "$GITHUB_OUTPUT"
+          if [ "$before" != "$after" ]; then
+            git push origin HEAD:refs/heads/stable/dither
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/fork-build.yml
+    with:
+      ref: ${{ needs.sync.outputs.commit }}

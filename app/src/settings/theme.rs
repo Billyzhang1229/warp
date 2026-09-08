@@ -1,9 +1,9 @@
 use settings::macros::define_settings_group;
 use settings::{RespectUserSyncSetting, Setting, SupportedPlatforms, SyncToCloud};
 use warp_core::ui::theme::{BackgroundShader, WarpTheme};
-use warpui::AppContext;
 use warpui::platform::SystemTheme;
 use warpui::rendering::dither::DitherConfig;
+use warpui::AppContext;
 
 use crate::themes::theme::{RespectSystemTheme, SelectedSystemThemes, ThemeKind};
 
@@ -47,7 +47,6 @@ define_settings_group!(ThemeSettings, settings: [
         default: None,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI,
         private: false,
         toml_path: "appearance.dither.enabled",
         description: "Enable dither on background images. Omit to use the theme default.",
@@ -57,7 +56,6 @@ define_settings_group!(ThemeSettings, settings: [
         default: None,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI,
         private: false,
         toml_path: "appearance.dither.pixel_size",
         description: "Dither grain size in logical pixels, from 1 to 32. Omit to use the theme default.",
@@ -67,7 +65,6 @@ define_settings_group!(ThemeSettings, settings: [
         default: None,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI,
         private: false,
         toml_path: "appearance.dither.strength",
         description: "Dither strength from 0 to 100. Omit to use the theme default.",
@@ -77,7 +74,6 @@ define_settings_group!(ThemeSettings, settings: [
         default: None,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI,
         private: false,
         toml_path: "appearance.dither.animated",
         description: "Animate the dither effect. Omit to use the theme default.",

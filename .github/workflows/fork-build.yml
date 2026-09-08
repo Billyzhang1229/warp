@@ -1,0 +1,69 @@
+name: Fork macOS build
+
+on:
+  push:
+    branches: [stable/dither]
+  pull_request:
+    branches: [stable/dither]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository == 'Billyzhang1229/warp'
+    runs-on: macos-15
+    timeout-minutes: 180
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_RELEASE_DEBUG: '0'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+          lfs: true
+          persist-credentials: false
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90
+        with:
+          xcode-version: '26'
+      - name: Prepare build dependencies
+        run: |
+          test "$(uname -m)" = arm64
+          rustup show
+          xcodebuild -downloadComponent MetalToolchain
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install protobuf
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: fork-stable-macos-arm64
+          save-if: ${{ github.event_name != 'pull_request' }}
+      - name: Install packaging tools
+        run: |
+          cargo install cargo-bundle --version 0.11.0 --locked
+          cargo install cargo-about --version 0.8.4 --locked
+      - name: Test stable release selection
+        run: python3 script/test_sync_upstream_stable.py
+      - name: Build and sign WarpOss
+        run: bash script/build-fork-macos
+      - name: Upload app and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WarpOss-macos-arm64-${{ inputs.ref || github.sha }}
+          path: |
+            dist/WarpOss-macos-arm64.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

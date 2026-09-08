@@ -1,5 +1,5 @@
 use settings::{PrivatePreferences, PublicPreferences, SettingsManager};
-use warp_core::ui::theme::{BackgroundShader, Image as ThemeImage, mock_terminal_colors};
+use warp_core::ui::theme::{mock_terminal_colors, BackgroundShader, Image as ThemeImage};
 use warpui::assets::asset_cache::AssetSource;
 use warpui::color::ColorU;
 use warpui::rendering::dither::DitherConfig;
@@ -37,11 +37,9 @@ fn image_adjustments_inherit_opacity_and_are_independent_of_legacy_dither() {
             let plain = theme(30, None);
             let legacy = theme(65, Some(BackgroundShader::Dither(DitherConfig::default())));
             let settings = image.as_ref(ctx);
-            assert!(
-                settings
-                    .resolve(crate::appearance::Appearance::mock().theme())
-                    .is_none()
-            );
+            assert!(settings
+                .resolve(crate::appearance::Appearance::mock().theme())
+                .is_none());
             if !warpui::SUPPORTS_BACKGROUND_SHADERS {
                 return;
             }

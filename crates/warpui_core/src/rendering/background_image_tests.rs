@@ -3,23 +3,19 @@ use super::*;
 #[test]
 fn background_image_neutral_and_end_of_window_gradient_bypass_adjustments() {
     assert_eq!(BackgroundImageEffects::default().parameters(), [[0.; 4]; 2]);
-    assert!(
-        BackgroundImageEffects {
-            gradient_start: 100,
-            gradient_strength: 80,
-            ..Default::default()
-        }
-        .is_identity()
-    );
-    assert!(
-        !BackgroundImageEffects {
-            brightness: 120,
-            gradient_start: 100,
-            gradient_strength: 80,
-            ..Default::default()
-        }
-        .is_identity()
-    );
+    assert!(BackgroundImageEffects {
+        gradient_start: 100,
+        gradient_strength: 80,
+        ..Default::default()
+    }
+    .is_identity());
+    assert!(!BackgroundImageEffects {
+        brightness: 120,
+        gradient_start: 100,
+        gradient_strength: 80,
+        ..Default::default()
+    }
+    .is_identity());
 }
 
 #[test]

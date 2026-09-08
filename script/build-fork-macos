@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export FRAMEWORK_OVERRIDE=dev
+export CARGO_PROFILE_RELEASE_DEBUG=0
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/target}"
+export WARP_SCHEME_NAME=warposs
+export GIT_RELEASE_TAG
+GIT_RELEASE_TAG=$(python3 -c 'import json; print(json.load(open(".github/upstream-stable.json"))["tag"])')
+pinned_commit=$(python3 -c 'import json; print(json.load(open(".github/upstream-stable.json"))["commit"])')
+git merge-base --is-ancestor "$pinned_commit" HEAD
+(
+    cd app
+    cargo bundle --locked --release --format osx --bin warp-oss --features gui,warpui/experimental-wgpu-renderer
+)
+app_bundle="$CARGO_TARGET_DIR/release/bundle/osx/WarpOss.app"
+export WARP_PLIST_PATH="$app_bundle/Contents/Info.plist"
+# Cargo bundle may preserve a plist from an earlier local build.
+/usr/libexec/PlistBuddy -c 'Delete :WarpVersion' "$WARP_PLIST_PATH" 2>/dev/null || true
+./script/update_plist
+SKIP_SETTINGS_SCHEMA=1 ./script/prepare_bundled_resources "$app_bundle/Contents/Resources" oss release
+./script/compile_icon oss "$app_bundle"
+cp LICENSE-AGPL LICENSE-MIT "$app_bundle/Contents/Resources/"
+cp .github/upstream-stable.json "$app_bundle/Contents/Resources/"
+git rev-parse HEAD > "$app_bundle/Contents/Resources/fork-commit.txt"
+codesign --force --deep --sign - "$app_bundle"
+codesign --verify --deep --strict "$app_bundle"
+mkdir -p dist
+ditto -c -k --sequesterRsrc --keepParent "$app_bundle" dist/WarpOss-macos-arm64.zip
+shasum -a 256 dist/WarpOss-macos-arm64.zip > dist/SHA256SUMS

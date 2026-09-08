@@ -11,7 +11,7 @@ use super::{AppearancePageAction, AppearanceSettingsPageView, OPACITY_SLIDER_WID
 use crate::appearance::Appearance;
 use crate::settings::BackgroundImageSettings;
 use crate::settings_view::settings_page::{
-    LocalOnlyIconState, SettingsWidget, ToggleState, build_reset_button, render_body_item,
+    build_reset_button, render_body_item, LocalOnlyIconState, SettingsWidget, ToggleState,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -154,9 +154,7 @@ fn dither_saved_boolean_overrides_apply_to_any_image() {
 fn dither_is_unavailable_without_a_background_image() {
     let mut settings = dither_settings(None, None, None);
     settings.dither_enabled = DitherEnabled::new(Some(Some(true)));
-    assert!(
-        settings
-            .background_dither(crate::appearance::Appearance::mock().theme())
-            .is_none()
-    );
+    assert!(settings
+        .background_dither(crate::appearance::Appearance::mock().theme())
+        .is_none());
 }

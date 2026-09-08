@@ -1,8 +1,8 @@
 use settings::macros::define_settings_group;
 use settings::{RespectUserSyncSetting, Setting, SupportedPlatforms, SyncToCloud};
 use warp_core::ui::theme::WarpTheme;
-use warpui::ModelContext;
 use warpui::rendering::background_image::BackgroundImageEffects;
+use warpui::ModelContext;
 
 // Separate from ThemeSettings: adjusting an image must not reload its theme or asset.
 define_settings_group!(BackgroundImageSettings, settings: [
@@ -10,7 +10,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: Option<u8>, default: None,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.opacity",
         description: "Image opacity from 0 to 100. Omit to use the theme opacity.",
     },
@@ -18,7 +18,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: u16, default: 100,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.brightness",
         description: "Background image brightness from 0 to 200 percent.",
     },
@@ -26,7 +26,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: u16, default: 100,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.contrast",
         description: "Background image contrast from 0 to 200 percent.",
     },
@@ -34,7 +34,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: bool, default: false,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.gradient_enabled",
         description: "Gradually darken the background image toward the bottom.",
     },
@@ -42,7 +42,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: u8, default: 60,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.gradient_strength",
         description: "Bottom darkening strength from 0 to 100 percent.",
     },
@@ -50,7 +50,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: u8, default: 50,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.gradient_start",
         description: "Gradient start measured from the window top, from 0 to 100 percent.",
     },
@@ -58,7 +58,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: bool, default: false,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.vignette_enabled",
         description: "Darken the background image edges with a soft elliptical vignette.",
     },
@@ -66,7 +66,7 @@ define_settings_group!(BackgroundImageSettings, settings: [
         type: u8, default: 40,
         supported_platforms: SupportedPlatforms::ALL,
         sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
-        surface: settings::SettingSurfaces::GUI, private: false,
+        private: false,
         toml_path: "appearance.background_image.vignette_strength",
         description: "Background image vignette strength from 0 to 100 percent.",
     },

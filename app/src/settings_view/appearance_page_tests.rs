@@ -1,10 +1,10 @@
-use warp_core::ui::theme::{Image as ThemeImage, WarpTheme, mock_terminal_colors};
-use warpui::App;
+use warp_core::ui::theme::{mock_terminal_colors, Image as ThemeImage, WarpTheme};
 use warpui::assets::asset_cache::AssetSource;
 use warpui::color::ColorU;
+use warpui::App;
 
 use super::*;
-use crate::settings_view::settings_page::{FilteredPageType, search_terms_match};
+use crate::settings_view::settings_page::{search_terms_match, FilteredPageType};
 
 #[test]
 fn dither_controls_follow_plain_image_availability_and_search() {

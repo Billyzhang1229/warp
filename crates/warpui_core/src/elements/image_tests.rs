@@ -121,12 +121,10 @@ fn image_adjustments_preserve_geometry_and_survive_zero_dither() {
             dimensions(source, vec2f(800., 600.), test_image().cover().fit_type)
         );
     }
-    assert!(
-        image
-            .with_background_effects(BackgroundImageEffects::default())
-            .background_effects
-            .is_none()
-    );
+    assert!(image
+        .with_background_effects(BackgroundImageEffects::default())
+        .background_effects
+        .is_none());
 }
 
 #[test]

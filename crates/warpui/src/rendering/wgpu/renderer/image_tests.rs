@@ -5,9 +5,9 @@ use pathfinder_geometry::rect::RectF;
 use pathfinder_geometry::vector::vec2f;
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
-use super::{ColorModifier, ImageInstanceData, Pipeline, shader_types};
-use crate::rendering::CornerRadius;
+use super::{shader_types, ColorModifier, ImageInstanceData, Pipeline};
 use crate::rendering::background_image::BackgroundImageEffects;
+use crate::rendering::CornerRadius;
 
 #[test]
 fn image_and_dither_shader_validate_together() {
@@ -198,12 +198,11 @@ impl ImageTestGpu {
                 write_mask: wgpu::ColorWrites::ALL,
             },
         );
-        let vertices =
-            [[0., 0.], [1., 0.], [0., 1.], [0., 1.], [1., 0.], [1., 1.]].map(|[x, y]| {
-                shader_types::Vertex {
-                    position: shader_types::vec2f(x, y),
-                }
-            });
+        let vertices = [[0., 0.], [1., 0.], [0., 1.], [0., 1.], [1., 0.], [1., 1.]].map(|[x, y]| {
+            shader_types::Vertex {
+                position: shader_types::vec2f(x, y),
+            }
+        });
         let vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&vertices),

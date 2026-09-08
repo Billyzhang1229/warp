@@ -14,11 +14,11 @@ use super::initializer::SettingsInitializer;
 use super::native_preference::NativePreferenceSettings;
 use super::{
     AISettings, AccessibilitySettings, AliasExpansionSettings, AppEditorSettings,
-    BackgroundImageSettings,
-    BlockVisibilitySettings, ChangelogSettings, CodeSettings, DebugSettings, EmacsBindingsSettings,
-    FontSettings, FontSettingsChangedEvent, GPUSettings, InputBoxType, InputModeSettings,
-    InputSettings, PaneSettings, SameLinePromptBlockSettings, ScrollSettings, SelectionSettings,
-    SshSettings, ThemeSettings, VimBannerSettings, WarpDrivePrivacySettings,
+    BackgroundImageSettings, BlockVisibilitySettings, ChangelogSettings, CodeSettings,
+    DebugSettings, EmacsBindingsSettings, FontSettings, FontSettingsChangedEvent, GPUSettings,
+    InputBoxType, InputModeSettings, InputSettings, PaneSettings, SameLinePromptBlockSettings,
+    ScrollSettings, SelectionSettings, SshSettings, ThemeSettings, VimBannerSettings,
+    WarpDrivePrivacySettings,
 };
 use crate::ai::cloud_agent_settings::CloudAgentSettings;
 use crate::banner::BannerState;

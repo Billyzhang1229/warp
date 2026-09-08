@@ -43,6 +43,7 @@ use autoupdate::AutoupdateStage;
 #[cfg(target_os = "macos")]
 use command::blocking::Command;
 use futures::Future;
+use instant::Instant;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 pub(crate) use onboarding::OnboardingTutorial;
@@ -319,12 +320,12 @@ use crate::server::telemetry::{
 use crate::session_management::{SessionNavigationData, SessionSource, TabNavigationData};
 use crate::settings::cloud_preferences::CloudPreferencesSettings;
 use crate::settings::{
-    AISettings, AISettingsChangedEvent, AccessibilitySettings, AliasExpansionSettings,
-    AppEditorSettings, BackgroundImageSettings, BlockVisibilitySettings, ChangelogSettings,
-    CodeSettings, CodeSettingsChangedEvent, CtrlTabBehavior, CursorBlink, DebugSettings,
-    DefaultSessionMode, FontSettings, GPUSettings, InputModeSettings, InputSettings,
-    MonospaceFontSize, PaneSettings, PrivacySettings, SelectionSettings, Settings, SshSettings,
-    ThemeSettings, active_theme_kind, respect_system_theme,
+    active_theme_kind, respect_system_theme, AISettings, AISettingsChangedEvent,
+    AccessibilitySettings, AliasExpansionSettings, AppEditorSettings, BackgroundImageSettings,
+    BlockVisibilitySettings, ChangelogSettings, CodeSettings, CodeSettingsChangedEvent,
+    CtrlTabBehavior, CursorBlink, DebugSettings, DefaultSessionMode, FontSettings, GPUSettings,
+    InputModeSettings, InputSettings, MonospaceFontSize, PaneSettings, PrivacySettings,
+    SelectionSettings, Settings, SshSettings, ThemeSettings,
 };
 use crate::settings_view::environments_page::EnvironmentsPage;
 use crate::settings_view::handoff_environment_creation_modal::{
@@ -935,6 +936,7 @@ pub struct TransferredTab {
 
 pub struct Workspace {
     window_id: WindowId,
+    background_image_animation_start_time: Instant,
     pub(crate) tabs: Vec<TabData>,
     active_tab_index: usize,
     /// Tracks tab activation order (most-recently-used first).
@@ -3269,6 +3271,7 @@ impl Workspace {
             theme_deletion_modal,
             import_modal,
             window_id: ctx.window_id(),
+            background_image_animation_start_time: Instant::now(),
             toast_stack,
             agent_toast_stack,
             update_toast_stack,
@@ -25570,8 +25573,9 @@ impl View for Workspace {
                 if let Some(state) = BackgroundImageSettings::as_ref(app).resolve(theme) {
                     background = background.with_background_effects(state.effects);
                 }
-                if let Some(state) = ThemeSettings::as_ref(app).background_dither(theme)
-                    && state.enabled
+                if let Some(state) = ThemeSettings::as_ref(app)
+                    .background_dither(theme)
+                    .filter(|state| state.enabled)
                 {
                     background = background.with_dither(
                         state.config,

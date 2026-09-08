@@ -17,8 +17,8 @@ use warpui::elements::{
 use warpui::fonts::{FamilyId, FontInfo, Weight};
 use warpui::keymap::{ContextPredicate, FixedBinding};
 use warpui::platform::{Cursor, FilePickerConfiguration, GraphicsBackend, SystemTheme};
-use warpui::rendering::ThinStrokes;
 use warpui::rendering::dither::DitherConfig;
+use warpui::rendering::ThinStrokes;
 use warpui::ui_components::button::ButtonVariant;
 use warpui::ui_components::components::{Coords, UiComponent, UiComponentStyles};
 use warpui::ui_components::radio_buttons::{
@@ -62,13 +62,12 @@ use crate::prompt::editor_modal::OpenSource as PromptEditorOpenSource;
 use crate::server::telemetry::{InputUXChangeOrigin, TelemetryEvent};
 use crate::settings::app_icon::{AppIcon, AppIconSettings};
 use crate::settings::{
-    BackgroundDitherState, BackgroundImageSettings,
-    active_theme_kind, respect_system_theme, AIFontName, AppEditorSettings, CursorBlink,
-    CursorBlinkEnabled, CursorDisplayType, EnforceMinimumContrast, FocusPaneOnHover, FontSettings,
-    FontSettingsChangedEvent, GPUSettings, InputBoxType, InputModeSettings, InputModeState,
-    InputSettings, InputSettingsChangedEvent, MonospaceFontName, PaneSettings,
-    ShouldDimInactivePanes, ThemeSettings, UseSystemTheme, UseThinStrokes,
-    DEFAULT_MONOSPACE_FONT_NAME,
+    active_theme_kind, respect_system_theme, AIFontName, AppEditorSettings, BackgroundDitherState,
+    BackgroundImageSettings, CursorBlink, CursorBlinkEnabled, CursorDisplayType,
+    EnforceMinimumContrast, FocusPaneOnHover, FontSettings, FontSettingsChangedEvent, GPUSettings,
+    InputBoxType, InputModeSettings, InputModeState, InputSettings, InputSettingsChangedEvent,
+    MonospaceFontName, PaneSettings, ShouldDimInactivePanes, ThemeSettings, UseSystemTheme,
+    UseThinStrokes, DEFAULT_MONOSPACE_FONT_NAME,
 };
 use crate::terminal::block_list_viewport::InputMode;
 use crate::terminal::blockgrid_element::BlockGridElement;
@@ -255,19 +254,17 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
         }
     }
 
-    app.register_fixed_bindings(vec![
-        FixedBinding::empty(
-            "Start Input at the Top".to_string(),
-            builder(SettingsAction::AppearancePageToggle(
-                AppearancePageAction::SetInputMode {
-                    new_mode: InputMode::Waterfall,
-                    from_binding: true,
-                },
-            )),
-            context.to_owned(),
-        )
-        .with_group(bindings::BindingGroup::Settings.as_str()),
-    ]);
+    app.register_fixed_bindings(vec![FixedBinding::empty(
+        "Start Input at the Top".to_string(),
+        builder(SettingsAction::AppearancePageToggle(
+            AppearancePageAction::SetInputMode {
+                new_mode: InputMode::Waterfall,
+                from_binding: true,
+            },
+        )),
+        context.to_owned(),
+    )
+    .with_group(bindings::BindingGroup::Settings.as_str())]);
 
     app.register_fixed_bindings(vec![FixedBinding::empty(
         "Pin Input to the Top".to_string(),
@@ -736,31 +733,25 @@ impl TypedActionView for AppearanceSettingsPageView {
                     return;
                 };
                 ThemeSettings::handle(ctx).update(ctx, |settings, ctx| {
-                    report_if_error!(
-                        settings
-                            .dither_animated
-                            .set_value(Some(!state.config.animated), ctx)
-                    );
+                    report_if_error!(settings
+                        .dither_animated
+                        .set_value(Some(!state.config.animated), ctx));
                 });
                 ctx.notify();
             }
             SetDitherSize(value) => {
                 ThemeSettings::handle(ctx).update(ctx, |settings, ctx| {
-                    report_if_error!(
-                        settings
-                            .dither_pixel_size
-                            .set_value(Some(value.round().clamp(1., 32.) as u8), ctx)
-                    );
+                    report_if_error!(settings
+                        .dither_pixel_size
+                        .set_value(Some(value.round().clamp(1., 32.) as u8), ctx));
                 });
                 ctx.notify();
             }
             SetDitherStrength(value) => {
                 ThemeSettings::handle(ctx).update(ctx, |settings, ctx| {
-                    report_if_error!(
-                        settings
-                            .dither_strength
-                            .set_value(Some(value.round().clamp(0., 100.) as u8), ctx)
-                    );
+                    report_if_error!(settings
+                        .dither_strength
+                        .set_value(Some(value.round().clamp(0., 100.) as u8), ctx));
                 });
                 ctx.notify();
             }
