@@ -13,6 +13,7 @@ use crate::fonts::{FontId, GlyphId};
 use crate::geometry::vector::vec2f;
 use crate::image_cache::StaticImage;
 use crate::rendering;
+use crate::rendering::background_image::BackgroundImageEffects;
 
 #[derive(Clone)]
 pub struct Scene {
@@ -112,6 +113,7 @@ pub struct Image {
     pub opacity: f32,
     pub corner_radius: CornerRadius,
     pub dither: Option<[f32; 4]>,
+    pub background_effects: Option<BackgroundImageEffects>,
 }
 
 #[derive(Clone)]
@@ -621,6 +623,18 @@ impl Scene {
         corner_radius: CornerRadius,
         dither: Option<[f32; 4]>,
     ) {
+        self.draw_image_with_effects(rect, asset, opacity, corner_radius, dither, None);
+    }
+
+    pub fn draw_image_with_effects(
+        &mut self,
+        rect: RectF,
+        asset: Arc<StaticImage>,
+        opacity: f32,
+        corner_radius: CornerRadius,
+        dither: Option<[f32; 4]>,
+        background_effects: Option<BackgroundImageEffects>,
+    ) {
         #[cfg(debug_assertions)]
         let location = self.panic_location.take();
         #[cfg(not(debug_assertions))]
@@ -634,6 +648,7 @@ impl Scene {
             opacity,
             corner_radius,
             dither,
+            background_effects,
         });
         layer.record_hit_rect(rect);
     }

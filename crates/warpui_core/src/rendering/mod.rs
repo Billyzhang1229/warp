@@ -1,3 +1,4 @@
+pub mod background_image;
 pub mod dither;
 mod gpu_info;
 pub mod texture_cache;

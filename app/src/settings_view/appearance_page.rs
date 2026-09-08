@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -18,6 +18,7 @@ use warpui::fonts::{FamilyId, FontInfo, Weight};
 use warpui::keymap::{ContextPredicate, FixedBinding};
 use warpui::platform::{Cursor, FilePickerConfiguration, GraphicsBackend, SystemTheme};
 use warpui::rendering::ThinStrokes;
+use warpui::rendering::dither::DitherConfig;
 use warpui::ui_components::button::ButtonVariant;
 use warpui::ui_components::components::{Coords, UiComponent, UiComponentStyles};
 use warpui::ui_components::radio_buttons::{
@@ -31,6 +32,7 @@ use warpui::{
     View, ViewContext, ViewHandle, WindowId,
 };
 
+use self::background_image_controls::BackgroundImageAdjustment;
 use super::directory_color_add_picker::{DirectoryColorAddPicker, DirectoryColorAddPickerEvent};
 use super::settings_page::{
     build_reset_button, render_body_item, render_body_item_label, render_dropdown_item,
@@ -42,6 +44,9 @@ use super::{
     flags, SettingActionPairContexts, SettingActionPairDescriptions, SettingsAction,
     SettingsSection, ToggleSettingActionPair,
 };
+
+#[path = "background_image_controls.rs"]
+mod background_image_controls;
 use crate::appearance::{Appearance, AppearanceEvent};
 use crate::channel::{Channel, ChannelState};
 use crate::context_chips::prompt::{Prompt, PromptEvent};
@@ -57,6 +62,7 @@ use crate::prompt::editor_modal::OpenSource as PromptEditorOpenSource;
 use crate::server::telemetry::{InputUXChangeOrigin, TelemetryEvent};
 use crate::settings::app_icon::{AppIcon, AppIconSettings};
 use crate::settings::{
+    BackgroundDitherState, BackgroundImageSettings,
     active_theme_kind, respect_system_theme, AIFontName, AppEditorSettings, CursorBlink,
     CursorBlinkEnabled, CursorDisplayType, EnforceMinimumContrast, FocusPaneOnHover, FontSettings,
     FontSettingsChangedEvent, GPUSettings, InputBoxType, InputModeSettings, InputModeState,
@@ -205,17 +211,63 @@ pub fn init_actions_from_parent_view<T: Action + Clone>(
         flags::DIM_INACTIVE_PANES_FLAG,
     ));
 
-    app.register_fixed_bindings(vec![FixedBinding::empty(
-        "Start Input at the Top".to_string(),
-        builder(SettingsAction::AppearancePageToggle(
-            AppearancePageAction::SetInputMode {
-                new_mode: InputMode::Waterfall,
-                from_binding: true,
-            },
-        )),
-        context.to_owned(),
-    )
-    .with_group(bindings::BindingGroup::Settings.as_str())]);
+    if warpui::SUPPORTS_BACKGROUND_SHADERS {
+        use warpui::keymap::macros::id;
+        let image_context = context.to_owned() & id!(flags::BACKGROUND_IMAGE_AVAILABLE_FLAG);
+        for (label, action, flag) in [
+            (
+                "background bottom darkening",
+                AppearancePageAction::ToggleBackgroundGradient,
+                flags::BACKGROUND_GRADIENT_ENABLED_FLAG,
+            ),
+            (
+                "background vignette",
+                AppearancePageAction::ToggleBackgroundVignette,
+                flags::BACKGROUND_VIGNETTE_ENABLED_FLAG,
+            ),
+        ] {
+            toggle_binding_pairs.push(ToggleSettingActionPair::new(
+                label,
+                builder(SettingsAction::AppearancePageToggle(action)),
+                &image_context,
+                flag,
+            ));
+        }
+        let dither_context = context.to_owned() & id!(flags::DITHER_AVAILABLE_FLAG);
+        for (label, action, flag) in [
+            (
+                "background dither",
+                AppearancePageAction::ToggleDither,
+                flags::DITHER_ENABLED_FLAG,
+            ),
+            (
+                "dither animation",
+                AppearancePageAction::ToggleDitherAnimation,
+                flags::DITHER_ANIMATED_FLAG,
+            ),
+        ] {
+            toggle_binding_pairs.push(ToggleSettingActionPair::new(
+                label,
+                builder(SettingsAction::AppearancePageToggle(action)),
+                &dither_context,
+                flag,
+            ));
+        }
+    }
+
+    app.register_fixed_bindings(vec![
+        FixedBinding::empty(
+            "Start Input at the Top".to_string(),
+            builder(SettingsAction::AppearancePageToggle(
+                AppearancePageAction::SetInputMode {
+                    new_mode: InputMode::Waterfall,
+                    from_binding: true,
+                },
+            )),
+            context.to_owned(),
+        )
+        .with_group(bindings::BindingGroup::Settings.as_str()),
+    ]);
 
     app.register_fixed_bindings(vec![FixedBinding::empty(
         "Pin Input to the Top".to_string(),
@@ -509,6 +561,14 @@ pub enum AppearancePageAction {
     ToggleCursorBlink,
     ToggleRespectSystemTheme,
     ToggleOpenWindowsAtCustomSize,
+    ToggleDither,
+    ToggleDitherAnimation,
+    SetDitherSize(f32),
+    SetDitherStrength(f32),
+    SetBackgroundImageAdjustment(BackgroundImageAdjustment, f32),
+    ToggleBackgroundGradient,
+    ToggleBackgroundVignette,
+    ResetBackgroundImage,
     ToggleDimInactivePanes,
     ToggleAllAvailableFonts,
     ToggleMatchNotebookToMonospaceFontSize,
@@ -638,6 +698,72 @@ impl TypedActionView for AppearanceSettingsPageView {
             ToggleOpenWindowsAtCustomSize => self.toggle_open_windows_at_custom_size(ctx),
             ToggleRespectSystemTheme => self.toggle_respect_system_theme(ctx),
             ToggleAllAvailableFonts => self.toggle_all_available_fonts(ctx),
+            SetBackgroundImageAdjustment(adjustment, value) => {
+                BackgroundImageSettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(adjustment.set(*value, settings, ctx));
+                });
+            }
+            ToggleBackgroundGradient => {
+                if background_image_controls::has_background_image(ctx) {
+                    BackgroundImageSettings::handle(ctx).update(ctx, |settings, ctx| {
+                        report_if_error!(settings.gradient_enabled.toggle_and_save_value(ctx));
+                    });
+                }
+            }
+            ToggleBackgroundVignette => {
+                if background_image_controls::has_background_image(ctx) {
+                    BackgroundImageSettings::handle(ctx).update(ctx, |settings, ctx| {
+                        report_if_error!(settings.vignette_enabled.toggle_and_save_value(ctx));
+                    });
+                }
+            }
+            ResetBackgroundImage => {
+                BackgroundImageSettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(settings.reset(ctx));
+                });
+            }
+            ToggleDither => {
+                let Some(state) = current_background_dither(ctx) else {
+                    return;
+                };
+                ThemeSettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(settings.dither_enabled.set_value(Some(!state.enabled), ctx));
+                });
+                ctx.notify();
+            }
+            ToggleDitherAnimation => {
+                let Some(state) = current_background_dither(ctx) else {
+                    return;
+                };
+                ThemeSettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(
+                        settings
+                            .dither_animated
+                            .set_value(Some(!state.config.animated), ctx)
+                    );
+                });
+                ctx.notify();
+            }
+            SetDitherSize(value) => {
+                ThemeSettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(
+                        settings
+                            .dither_pixel_size
+                            .set_value(Some(value.round().clamp(1., 32.) as u8), ctx)
+                    );
+                });
+                ctx.notify();
+            }
+            SetDitherStrength(value) => {
+                ThemeSettings::handle(ctx).update(ctx, |settings, ctx| {
+                    report_if_error!(
+                        settings
+                            .dither_strength
+                            .set_value(Some(value.round().clamp(0., 100.) as u8), ctx)
+                    );
+                });
+                ctx.notify();
+            }
             ToggleDimInactivePanes => self.toggle_dim_inactive_panes(ctx),
             ToggleBlurTexture => self.toggle_blur_texture(ctx),
             ToggleLeftPanelVisibility => self.toggle_left_panel_visibility(ctx),
@@ -938,6 +1064,10 @@ impl AppearanceSettingsPageView {
                 dropdown.set_selected_by_name(Self::app_icon_dropdown_item_label(app_icon), ctx);
                 ctx.notify();
             });
+            ctx.notify()
+        });
+        ctx.subscribe_to_model(&ThemeSettings::handle(ctx), |_, _, _, ctx| ctx.notify());
+        ctx.subscribe_to_model(&BackgroundImageSettings::handle(ctx), |_, _, _, ctx| {
             ctx.notify()
         });
         ctx.subscribe_to_model(&SessionSettings::handle(ctx), |_, _, _, ctx| ctx.notify());
@@ -1323,6 +1453,22 @@ impl AppearanceSettingsPageView {
                 Box::new(ThemeSelectWidget::default()),
             ],
         )];
+
+        if warpui::SUPPORTS_BACKGROUND_SHADERS {
+            categories.push(Category::new(
+                "Background image",
+                background_image_controls::widgets(),
+            ));
+            categories.push(Category::new(
+                "Dither",
+                vec![
+                    Box::new(DitherEnabledWidget::default()),
+                    Box::new(DitherSizeWidget::default()),
+                    Box::new(DitherStrengthWidget::default()),
+                    Box::new(DitherAnimationWidget::default()),
+                ],
+            ));
+        }
 
         if AppIconSettings::as_ref(ctx).is_supported_on_current_platform() {
             categories.push(Category::new(
@@ -5250,3 +5396,205 @@ impl From<ViewHandle<AppearanceSettingsPageView>> for SettingsPageViewHandle {
         SettingsPageViewHandle::Appearance(view_handle)
     }
 }
+
+fn current_background_dither(ctx: &AppContext) -> Option<BackgroundDitherState> {
+    ThemeSettings::as_ref(ctx).background_dither(Appearance::as_ref(ctx).theme())
+}
+
+fn current_dither_config(ctx: &AppContext) -> DitherConfig {
+    current_background_dither(ctx)
+        .map(|state| state.config)
+        .unwrap_or_default()
+}
+
+fn has_dither_background(app: &AppContext) -> bool {
+    current_background_dither(app).is_some()
+}
+
+#[derive(Default)]
+struct DitherEnabledWidget {
+    state: SwitchStateHandle,
+}
+
+impl SettingsWidget for DitherEnabledWidget {
+    type View = AppearanceSettingsPageView;
+    fn search_terms(&self) -> &str {
+        "dither background effect enable disable on off"
+    }
+    fn should_render(&self, app: &AppContext) -> bool {
+        has_dither_background(app)
+    }
+    fn render(
+        &self,
+        _view: &Self::View,
+        appearance: &Appearance,
+        app: &AppContext,
+    ) -> Box<dyn Element> {
+        let value = current_background_dither(app).is_some_and(|state| state.enabled);
+        render_body_item::<AppearancePageAction>(
+            "Dither effect".into(),
+            None,
+            LocalOnlyIconState::Hidden,
+            ToggleState::Enabled,
+            appearance,
+            appearance
+                .ui_builder()
+                .switch(self.state.clone())
+                .check(value)
+                .build()
+                .on_click(|ctx, _, _| ctx.dispatch_typed_action(AppearancePageAction::ToggleDither))
+                .finish(),
+            None,
+        )
+    }
+}
+
+#[derive(Default)]
+struct DitherAnimationWidget {
+    state: SwitchStateHandle,
+}
+
+impl SettingsWidget for DitherAnimationWidget {
+    type View = AppearanceSettingsPageView;
+    fn search_terms(&self) -> &str {
+        "dither background animation motion pause"
+    }
+    fn should_render(&self, app: &AppContext) -> bool {
+        has_dither_background(app)
+    }
+    fn render(
+        &self,
+        _view: &Self::View,
+        appearance: &Appearance,
+        app: &AppContext,
+    ) -> Box<dyn Element> {
+        let value = current_dither_config(app).animated;
+        render_body_item::<AppearancePageAction>(
+            "Animate dither".into(),
+            None,
+            LocalOnlyIconState::Hidden,
+            ToggleState::Enabled,
+            appearance,
+            appearance
+                .ui_builder()
+                .switch(self.state.clone())
+                .check(value)
+                .build()
+                .on_click(|ctx, _, _| {
+                    ctx.dispatch_typed_action(AppearancePageAction::ToggleDitherAnimation)
+                })
+                .finish(),
+            None,
+        )
+    }
+}
+
+#[derive(Default)]
+struct DitherSizeWidget {
+    state: SliderStateHandle,
+    last_value: Cell<Option<u8>>,
+}
+
+impl SettingsWidget for DitherSizeWidget {
+    type View = AppearanceSettingsPageView;
+    fn search_terms(&self) -> &str {
+        "dither background grain pixel size dots"
+    }
+    fn should_render(&self, app: &AppContext) -> bool {
+        has_dither_background(app)
+    }
+    fn render(
+        &self,
+        _view: &Self::View,
+        appearance: &Appearance,
+        app: &AppContext,
+    ) -> Box<dyn Element> {
+        let value = current_dither_config(app).pixel_size;
+        if self.last_value.replace(Some(value)) != Some(value) {
+            self.state.reset_offset();
+        }
+        render_body_item::<AppearancePageAction>(
+            format!("Grain size: {value} px"),
+            None,
+            LocalOnlyIconState::Hidden,
+            ToggleState::Enabled,
+            appearance,
+            appearance
+                .ui_builder()
+                .slider(self.state.clone())
+                .with_range(1.0..32.0)
+                .with_step(1.0)
+                .with_default_value(f32::from(value))
+                .with_style(UiComponentStyles {
+                    width: Some(OPACITY_SLIDER_WIDTH),
+                    ..Default::default()
+                })
+                .on_drag(|ctx, _, value| {
+                    ctx.dispatch_typed_action(AppearancePageAction::SetDitherSize(value))
+                })
+                .on_change(|ctx, _, value| {
+                    ctx.dispatch_typed_action(AppearancePageAction::SetDitherSize(value))
+                })
+                .build()
+                .finish(),
+            None,
+        )
+    }
+}
+
+#[derive(Default)]
+struct DitherStrengthWidget {
+    state: SliderStateHandle,
+    last_value: Cell<Option<u8>>,
+}
+
+impl SettingsWidget for DitherStrengthWidget {
+    type View = AppearanceSettingsPageView;
+    fn search_terms(&self) -> &str {
+        "dither background strength intensity"
+    }
+    fn should_render(&self, app: &AppContext) -> bool {
+        has_dither_background(app)
+    }
+    fn render(
+        &self,
+        _view: &Self::View,
+        appearance: &Appearance,
+        app: &AppContext,
+    ) -> Box<dyn Element> {
+        let value = current_dither_config(app).strength;
+        if self.last_value.replace(Some(value)) != Some(value) {
+            self.state.reset_offset();
+        }
+        render_body_item::<AppearancePageAction>(
+            format!("Dither strength: {value}%"),
+            None,
+            LocalOnlyIconState::Hidden,
+            ToggleState::Enabled,
+            appearance,
+            appearance
+                .ui_builder()
+                .slider(self.state.clone())
+                .with_range(0.0..100.0)
+                .with_step(1.0)
+                .with_default_value(f32::from(value))
+                .with_style(UiComponentStyles {
+                    width: Some(OPACITY_SLIDER_WIDTH),
+                    ..Default::default()
+                })
+                .on_drag(|ctx, _, value| {
+                    ctx.dispatch_typed_action(AppearancePageAction::SetDitherStrength(value))
+                })
+                .on_change(|ctx, _, value| {
+                    ctx.dispatch_typed_action(AppearancePageAction::SetDitherStrength(value))
+                })
+                .build()
+                .finish(),
+            None,
+        )
+    }
+}
+
+#[cfg(test)]
+#[path = "appearance_page_tests.rs"]
+mod tests;

@@ -5,6 +5,7 @@ use warpui::{AppContext, EntityId, SingletonEntity, ViewContext, ViewHandle, Win
 use super::OneTimeModalModel;
 use crate::appearance::Appearance;
 use crate::pane_group::PaneId;
+use crate::settings::BackgroundImageSettings;
 use crate::terminal::TerminalView;
 use crate::window_settings::WindowSettings;
 use crate::workspace::tab_group::TabGroupId;
@@ -404,11 +405,15 @@ fn get_terminal_background_opacity(window_id: WindowId, app: &AppContext) -> u8 
         .background_opacity
         .effective_opacity(window_id, app);
 
-    if let Some(img) = theme.background_image() {
-        let opacity_ratio = background_opacity as f32 / 100.;
-        // Scale the overlay opacity with the background opacity ratio.
-        (((100 - img.opacity) as f32) * opacity_ratio) as u8
-    } else {
-        background_opacity
+    match theme.background_image() {
+        Some(img) => {
+            let opacity_ratio = background_opacity as f32 / 100.;
+            let image_opacity = BackgroundImageSettings::as_ref(app)
+                .resolve(theme)
+                .map_or(img.opacity.min(100), |state| state.opacity);
+            // Scale the overlay opacity with the background opacity ratio.
+            (((100 - image_opacity) as f32) * opacity_ratio) as u8
+        }
+        _ => background_opacity,
     }
 }
