@@ -51,8 +51,12 @@ jobs:
           save-if: ${{ github.event_name != 'pull_request' }}
       - name: Install packaging tools
         run: |
-          cargo install cargo-bundle --version 0.11.0 --locked
-          cargo install cargo-about --version 0.8.4 --locked
+          if ! cargo-bundle --version 2>/dev/null | grep -Eq "^cargo[- ]bundle v?0[.]11[.]0$"; then
+            cargo install cargo-bundle --version 0.11.0 --locked --force
+          fi
+          if ! cargo-about --version 2>/dev/null | grep -Eq "^cargo-about 0[.]8[.]4$"; then
+            cargo install cargo-about --version 0.8.4 --locked --force
+          fi
       - name: Test stable release selection
         run: python3 script/test_sync_upstream_stable.py
       - name: Build and sign WarpOss
