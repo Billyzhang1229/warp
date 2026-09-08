@@ -53,7 +53,7 @@ use warpui::{
 use self::telemetry::SettingsTelemetryEvent;
 use crate::ai::custom_model_routers::CustomModelRouter;
 use crate::ai::execution_profiles::ExecutionProfileId;
-use crate::appearance::Appearance;
+use crate::appearance::{Appearance, AppearanceEvent};
 use crate::editor::{
     EditorView, Event as EditorEvent, PropagateAndNoOpNavigationKeys, SingleLineEditorOptions,
     TextColors, TextOptions,
@@ -535,6 +535,12 @@ pub mod flags {
     pub const CLOUD_CONVERSATION_STORAGE_FLAG: &str = "Cloud_Conversation_Storage_Enabled";
     pub const CLOUD_CONVERSATION_STORAGE_EDITABLE_FLAG: &str =
         "Cloud_Conversation_Storage_Editable";
+    pub const DITHER_AVAILABLE_FLAG: &str = "Dither_Available";
+    pub const DITHER_ENABLED_FLAG: &str = "Dither_Enabled";
+    pub const DITHER_ANIMATED_FLAG: &str = "Dither_Animated";
+    pub const BACKGROUND_IMAGE_AVAILABLE_FLAG: &str = "Background_Image_Available";
+    pub const BACKGROUND_GRADIENT_ENABLED_FLAG: &str = "Background_Gradient_Enabled";
+    pub const BACKGROUND_VIGNETTE_ENABLED_FLAG: &str = "Background_Vignette_Enabled";
     pub const DIM_INACTIVE_PANES_FLAG: &str = "Dim_Inactive_Panes";
     pub const OPEN_WINDOWS_AT_CUSTOM_SIZE_FLAG: &str = "Open_Windows_At_Custom_Size";
     pub const WINDOW_BLUR_TEXTURE_FLAG: &str = "Window_Blur_Texture";
@@ -1211,6 +1217,11 @@ impl SettingsView {
         ctx.subscribe_to_view(&appearance_page_handle, |me, _, event, ctx| {
             me.handle_appearance_page_event(event, ctx);
         });
+        ctx.subscribe_to_model(&Appearance::handle(ctx), |me, _, event, ctx| {
+            if matches!(event, AppearanceEvent::ThemeChanged) {
+                me.refresh_appearance_filter(ctx);
+            }
+        });
 
         // Features page
         let features_page_handle = ctx.add_typed_action_view(|ctx| {
@@ -1532,6 +1543,36 @@ impl SettingsView {
                 (self.should_render_page(page, app) && match_data.is_truthy())
                     .then_some((page, *match_data))
             })
+    }
+
+    fn refresh_appearance_filter(&mut self, ctx: &mut ViewContext<Self>) {
+        let query = self.search_editor.as_ref(ctx).buffer_text(ctx);
+        if let Some((index, page)) = self
+            .settings_pages
+            .iter()
+            .enumerate()
+            .find(|(_, page)| page.section == SettingsSection::Appearance)
+        {
+            self.pages_filter[index] = update_page!(
+                &page.view_handle,
+                |view, ctx| {
+                    let matches = view.update_filter(&query, ctx);
+                    ctx.notify();
+                    matches
+                },
+                ctx
+            );
+        }
+        if !self.section_passes_search_filter(self.current_settings_page) {
+            let first_visible = self
+                .filtered_pages(ctx)
+                .next()
+                .map(|(page, _)| page.section);
+            if let Some(section) = first_visible {
+                self.set_and_refresh_current_page_internal(section, false, false, ctx);
+            }
+        }
+        ctx.notify();
     }
 
     fn handle_search_editor_event(

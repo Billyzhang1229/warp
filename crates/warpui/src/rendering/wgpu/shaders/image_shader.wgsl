@@ -22,6 +22,8 @@ struct ImageVertexShaderInput {
     // Corner radius in the order top_left, top_right, bottom_left, bottom_right.
     @location(4) corner_radius: vec4<f32>,
     @location(5) dither: vec4<f32>,
+    @location(6) background_color: vec4<f32>,
+    @location(7) background_edges: vec4<f32>,
 }
 
 struct ImageVertexShaderOutput {
@@ -34,6 +36,8 @@ struct ImageVertexShaderOutput {
     @location(6) corner_radius: vec4<f32>,
     @location(7) @interpolate(flat) dither: vec4<f32>,
     @location(8) @interpolate(flat) image_bounds: vec4<f32>,
+    @location(9) @interpolate(flat) background_color: vec4<f32>,
+    @location(10) @interpolate(flat) background_edges: vec4<f32>,
 }
 
 @vertex
@@ -61,6 +65,8 @@ fn vs_main(
     out.corner_radius = image.corner_radius;
     out.dither = image.dither;
     out.image_bounds = image.bounds;
+    out.background_color = image.background_color;
+    out.background_edges = image.background_edges;
     return out;
 }
 
@@ -79,8 +85,14 @@ fn fs_main(in: ImageVertexShaderOutput) -> @location(0) vec4<f32> {
     if in.is_icon == 0u {
         // For an image, use the image color and just adjust opacity.
         color = color_sample;
+        if in.background_edges.y > 0.0 {
+            color = adjust_background_color(color, in.background_color);
+        }
         if in.dither.y > 0.0 {
-            color = dither_background(in.texture_coordinate, in.position.xy - in.image_bounds.xy, in.image_bounds.zw, in.dither);
+            color = dither_background(color, in.texture_coordinate, in.position.xy - in.image_bounds.xy, in.image_bounds.zw, in.dither);
+        }
+        if in.background_edges.y > 0.0 {
+            color = shade_background_edges(color, in.position.xy, uniforms.viewport_size, in.background_color, in.background_edges.x);
         }
         color.a *= in.color.a;
     } else {

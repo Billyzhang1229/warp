@@ -1,24 +1,25 @@
 # Dither background (local fork)
 
-The wgpu image shader can apply the animated dot-and-cross effect to workspace background images. Glyphs, icons, ordinary images, theme thumbnails and the native Metal renderer keep their existing rendering. The native Metal renderer displays the ordinary theme image without scheduling shader animation.
+The wgpu image shader can apply the animated dot-and-cross effect to any workspace background image. Import an image with **Create new theme from image**, then use **Settings → Appearance → Dither**. No shader metadata or YAML editing is required. Glyphs, icons, non-background images and theme thumbnails keep their existing rendering. The native Metal renderer displays the ordinary theme image without scheduling shader animation.
+
+The separate **Background image** section adds opacity, brightness, contrast, bottom darkening and a vignette. See [Background image adjustments](background-image-controls.md) for defaults, storage, rendering order and performance verification. These adjustments remain active when Dither is off or its strength is zero.
 
 ## Run on macOS
 
 Build with Rust 1.92.0 and the Xcode Metal toolchain. Warp's build script compiles its native shaders even when using wgpu.
 
 ```sh
-mkdir -p ~/.warp-oss/themes
-cp resources/themes/capy-dither.yaml resources/themes/capy-dither.webp ~/.warp-oss/themes/
-WARP_SKIP_COMMON_SKILLS_INSTALL=1 ./script/run --features warpui/experimental-wgpu-renderer
+WARP_SKIP_COMMON_SKILLS_INSTALL=1 ./script/run --features warpui/experimental-wgpu-renderer --dont-open --format osx
+./script/run-dither
 ```
 
-The run script also requires the repository's Cargo bundle dependency. Choose **Capy Dither** in Settings > Appearance > Current Theme in **WarpOss**. This does not change your installed stable Warp. If using a development data profile or a different channel, put the files in that channel/profile's themes directory instead.
+The build also requires the repository's Cargo bundle dependency. In **WarpOss**, open Settings → Appearance, click the current theme, and click **+** in the Themes sidebar. Select an image, create the theme, then turn on **Dither effect** in Appearance. This does not change your installed stable Warp.
 
-For the isolated local preview used during development, run `./script/run-dither` after building. It launches the existing app with `WARP_DATA_PROFILE=dither` and installs the sample into `~/.warp-oss-dither/` only when absent. Edit `~/.warp-oss-dither/themes/capy-dither.yaml` to tune that preview; the launcher preserves existing settings and theme edits.
+The preview launcher uses `WARP_DATA_PROFILE=dither` and installs the optional Capy Dither sample into `~/.warp-oss-dither/` only when absent. It preserves existing settings and themes. Effects are adjusted in Appearance and saved to that profile's settings.toml.
 
-## Customize
+## Optional theme defaults
 
-Add this to any background-image theme:
+Existing themes can still declare shader defaults. This is optional; ordinary imported images work without this block:
 
 ```yaml
 background_image:
@@ -31,13 +32,17 @@ background_image:
     animated: true
 ```
 
-`pixel_size` is measured in logical pixels, clamped to 1–32 and aligned to whole device pixels. `strength` is a percentage clamped to 0–100; zero bypasses the shader and its timer. `animated: false` freezes the effect at time zero and disables animation repaint requests. Removing `shader` restores the original image rendering. Unknown shader kinds or option names are rejected by the theme parser.
+`pixel_size` is measured in logical pixels, clamped to 1–32 and aligned to whole device pixels. `strength` is a percentage clamped to 0–100; zero bypasses the shader and its timer. `animated: false` freezes the effect at time zero and disables dither animation repaint requests. Unknown shader kinds or option names are rejected by the theme parser.
 
-To change the actual shader, edit `crates/warpui/src/rendering/wgpu/shaders/dither.wgsl` and rebuild. It receives the original image texture/sampler, blue-noise texture, image-local coordinates, physical bounds, time, strength, grain size and motion. This first version does not load arbitrary shader files or hot reload WGSL at runtime.
+Explicit settings under `[appearance.dither]` override theme defaults globally and follow you when switching images. An omitted `enabled` means off for ordinary images and on for legacy shader themes. Existing saved `true`/`false` values remain compatible. Without theme defaults or user overrides, grain size is 4, strength is 100, and animation is enabled. Disabling dither preserves these parameters.
+
+To change the actual shader, edit `crates/warpui/src/rendering/wgpu/shaders/dither.wgsl` and rebuild. It receives the original sampled RGBA, blue-noise texture, image-local coordinates, physical bounds, time, strength, grain size and motion. It does not load arbitrary shader files or hot reload WGSL at runtime.
 
 ## Rendering behavior
 
-The workspace background opts into the existing image render pass. The effect runs before terminal foreground layers; no full-window postprocessing or extra render pass is used. The 128×128 R8 blue-noise texture is uploaded once per renderer, and existing image caching retains the portrait texture.
+The workspace background opts into the existing image render pass. The effect runs before terminal foreground layers; no full-window postprocessing or extra render pass is used. The 128×128 R8 blue-noise texture is uploaded once per renderer, and existing image caching retains background textures.
+
+The effect uses the original image layout and texture sample, preserving cover cropping, alignment, alpha and image opacity. It adds no portrait-specific positioning, camera drift, color tint, vignette or bottom fade. Strength blends between the original RGB and the dither result, with unchanged alpha. Animated image sources retain their normal playback; the Dither animation switch controls the dot/cross pattern.
 
 The element requests at most one animation repaint per 33.34 ms. Other UI activity can cause additional draws. Only the active window in the active application schedules these repaints; changing focus resumes animation using elapsed time. There is no separate perpetual timer. The effect uses the window's native render resolution, so cost grows with window size and display scale. Use static mode if continuous animation is undesirable; OS reduced-motion preferences are not yet wired into this prototype.
 
@@ -45,7 +50,20 @@ The element requests at most one animation repaint per 33.34 ms. Other UI activi
 
 The shader, portrait and generated blue-noise mask were adapted from the user's `capy-landing` project. The portrait is an AI reconstruction of a supplied reference. The blue-noise mask is generated by that project's toroidal void-and-cluster generator; it is not a downloaded texture. See that project's `THIRD_PARTY.md` for original attribution. The vGPU JavaScript runtime is not included or required by this Rust port.
 
-## Verification in this checkout
+## Generic image effect verification
+
+Verified on macOS arm64 with Rust 1.92.0 and `gui,warpui/experimental-wgpu-renderer`:
+
+- 7 app tests passed for ordinary-image defaults, legacy defaults, saved boolean compatibility, overrides, clamping, availability and per-control settings search.
+- 6 image/dither core tests passed, including unchanged landscape/portrait cover geometry and the original rendering path at zero strength. The combined image/dither WGSL validation test also passed.
+- Clippy passed with `-D warnings` for the `warpui_core`, `warpui` and `warp` libraries. The full `warp-oss` executable built successfully. Changed Rust/WGSL formatting and `git diff --check` passed.
+- In an independent empty profile, imported synthetic landscape (1200×400), portrait (400×1200) and transparent (640×480) PNGs through the image-theme dialog. The generated themes contain no shader metadata. Ordinary images initially had dither off, and all four controls appeared immediately.
+- Visually checked unchanged image/grid placement while toggling the effect, the original image at 0%, size endpoints of 1 and 32 px, live strength adjustment, automatic animation, and static dots/crosses after animation was disabled. The transparent image retained fully transparent and half-transparent areas.
+- Each control was found separately using settings search. Switching to a theme without an image removed the section and Command Palette entries; switching back restored matching controls without clearing the search. Palette toggles and Appearance switches stayed synchronized.
+- Switching between imported images preserved explicit overrides. After quitting and restarting the QA app, the transparent theme and enabled/12 px/65%/animation-off settings were restored.
+- Updated and ad-hoc signed `target/debug/bundle/osx/WarpOss.app`, and verified its signature. No commit or push was made. Native Metal rendering and GPU performance were not part of this verification.
+
+## Initial prototype verification (0d805009)
 
 On macOS arm64 with Rust 1.92.0:
 
@@ -56,4 +74,19 @@ On macOS arm64 with Rust 1.92.0:
 - The full `warp-oss` binary built, was packaged as WarpOss.app, and the final executable was copied into the bundle and ad-hoc signed for local use.
 - The running WarpOss dither profile showed the portrait and changing dot/cross pattern in consecutive native screenshots at 100% window opacity, with UI text rendering normally. No GPU frame-rate or power measurements were taken. Native Metal fallback behavior was not visually tested.
 
-The preview was left running. The final binary update is picked up on the next launch; no session was closed to install it.
+## Appearance controls
+
+In the wgpu build, open Settings → Appearance → Dither with any background-image theme selected:
+
+- **Dither effect** switches between the shader and the original background image.
+- **Grain size** sets the dot/cross grid from 1–32 logical pixels.
+- **Dither strength** blends the effect from 0–100%.
+- **Animate dither** turns the motion on or off.
+
+Changes apply immediately and persist in `settings.toml` under `[appearance.dither]`.
+The keys are `enabled`, `pixel_size`, `strength`, and `animated`. Optional overrides
+inherit the active theme's YAML values until changed. Remove an override from
+settings.toml to restore that theme default. Disabling the effect preserves the
+size, strength, and animation choices. Themes without a background image hide this section and its Command Palette entries. Theme changes refresh settings search immediately.
+Search for “grain size”, “dither strength”, or “animation” to isolate a control.
+The Command Palette also provides Enable/Disable background dither and dither animation.

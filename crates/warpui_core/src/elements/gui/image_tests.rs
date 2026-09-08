@@ -62,6 +62,76 @@ fn image_rect_returns_none_for_nan_origin() {
 }
 
 #[test]
+fn dither_preserves_cover_geometry_for_landscape_and_portrait_images() {
+    let plain = test_image().cover();
+    let effect =
+        test_image()
+            .cover()
+            .with_dither(DitherConfig::default(), Instant::now(), WindowId::new());
+    let viewport = vec2f(800., 600.);
+    assert_eq!(
+        dimensions(vec2f(1200., 400.), viewport, plain.fit_type),
+        dimensions(vec2f(1200., 400.), viewport, effect.fit_type)
+    );
+    assert_eq!(
+        dimensions(vec2f(400., 1200.), viewport, plain.fit_type),
+        dimensions(vec2f(400., 1200.), viewport, effect.fit_type)
+    );
+}
+
+#[test]
+fn dither_zero_strength_uses_the_original_image_path() {
+    let image = test_image().cover().with_dither(
+        DitherConfig {
+            strength: 0,
+            ..DitherConfig::default()
+        },
+        Instant::now(),
+        WindowId::new(),
+    );
+    assert!(image.dither.is_none());
+    assert_eq!(
+        dimensions(vec2f(1200., 400.), vec2f(800., 600.), image.fit_type),
+        vec2f(1800., 600.)
+    );
+}
+
+#[test]
+fn image_adjustments_preserve_geometry_and_survive_zero_dither() {
+    let effects = BackgroundImageEffects {
+        brightness: 120,
+        gradient_strength: 60,
+        vignette_strength: 40,
+        ..Default::default()
+    };
+    let image = test_image()
+        .cover()
+        .with_background_effects(effects)
+        .with_dither(
+            DitherConfig {
+                strength: 0,
+                ..Default::default()
+            },
+            Instant::now(),
+            WindowId::new(),
+        );
+    assert!(image.dither.is_none());
+    assert_eq!(image.background_effects, Some(effects));
+    for source in [vec2f(1200., 400.), vec2f(400., 1200.)] {
+        assert_eq!(
+            dimensions(source, vec2f(800., 600.), image.fit_type),
+            dimensions(source, vec2f(800., 600.), test_image().cover().fit_type)
+        );
+    }
+    assert!(
+        image
+            .with_background_effects(BackgroundImageEffects::default())
+            .background_effects
+            .is_none()
+    );
+}
+
+#[test]
 fn failed_to_load_prefers_failure_element_when_provided() {
     let image = test_image()
         .before_load(test_element())

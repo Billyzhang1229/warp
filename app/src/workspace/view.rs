@@ -347,11 +347,11 @@ use crate::session_management::{SessionNavigationData, SessionSource, TabNavigat
 use crate::settings::cloud_preferences::CloudPreferencesSettings;
 use crate::settings::{
     AISettings, AISettingsChangedEvent, AccessibilitySettings, AliasExpansionSettings,
-    AppEditorSettings, BlockVisibilitySettings, ChangelogSettings, CodeSettings,
-    CodeSettingsChangedEvent, CtrlTabBehavior, CursorBlink, DebugSettings, DefaultSessionMode,
-    FontSettings, GPUSettings, InputModeSettings, InputSettings, MonospaceFontSize, PaneSettings,
-    PrivacySettings, SelectionSettings, Settings, SshSettings, ThemeSettings, active_theme_kind,
-    respect_system_theme,
+    AppEditorSettings, BackgroundImageSettings, BlockVisibilitySettings, ChangelogSettings,
+    CodeSettings, CodeSettingsChangedEvent, CtrlTabBehavior, CursorBlink, DebugSettings,
+    DefaultSessionMode, FontSettings, GPUSettings, InputModeSettings, InputSettings,
+    MonospaceFontSize, PaneSettings, PrivacySettings, SelectionSettings, Settings, SshSettings,
+    ThemeSettings, active_theme_kind, respect_system_theme,
 };
 use crate::settings_view::environments_page::EnvironmentsPage;
 use crate::settings_view::handoff_environment_creation_modal::{
@@ -436,7 +436,7 @@ use crate::terminal::view::{
 };
 use crate::terminal::warpify::settings::WarpifySettings;
 use crate::terminal::{self, BlockListSettings, SizeInfo, TerminalModel, TerminalView};
-use crate::themes::theme::{AnsiColorIdentifier, BackgroundShader, RespectSystemTheme, ThemeKind};
+use crate::themes::theme::{AnsiColorIdentifier, RespectSystemTheme, ThemeKind};
 use crate::themes::theme_chooser::{ThemeChooser, ThemeChooserEvent, ThemeChooserMode};
 use crate::themes::theme_creator_modal::{ThemeCreatorModal, ThemeCreatorModalEvent};
 use crate::themes::theme_deletion_modal::{ThemeDeletionModal, ThemeDeletionModalEvent};
@@ -2923,7 +2923,11 @@ impl Workspace {
         ctx.subscribe_to_model(&auth_manager, Self::handle_auth_manager_event);
 
         // Handle theme updates when there is a cloud update to themes while the picker is open.
+        ctx.subscribe_to_model(&BackgroundImageSettings::handle(ctx), |_, _, _, ctx| {
+            ctx.notify();
+        });
         ctx.subscribe_to_model(&ThemeSettings::handle(ctx), |me, _, _, ctx| {
+            ctx.notify();
             if me.is_theme_chooser_open() {
                 me.theme_chooser_view.update(ctx, |view, ctx| {
                     view.handle_theme_change(ctx);
@@ -23125,6 +23129,26 @@ impl Workspace {
             }
         }
 
+        if let Some(state) =
+            BackgroundImageSettings::as_ref(app).resolve(Appearance::as_ref(app).theme())
+        {
+            context.set.insert(flags::BACKGROUND_IMAGE_AVAILABLE_FLAG);
+            if state.gradient_enabled {
+                context.set.insert(flags::BACKGROUND_GRADIENT_ENABLED_FLAG);
+            }
+            if state.vignette_enabled {
+                context.set.insert(flags::BACKGROUND_VIGNETTE_ENABLED_FLAG);
+            }
+        }
+        if let Some(state) = theme_settings.background_dither(Appearance::as_ref(app).theme()) {
+            context.set.insert(flags::DITHER_AVAILABLE_FLAG);
+            if state.enabled {
+                context.set.insert(flags::DITHER_ENABLED_FLAG);
+            }
+            if state.config.animated {
+                context.set.insert(flags::DITHER_ANIMATED_FLAG);
+            }
+        }
         if *pane_settings.should_dim_inactive_panes {
             context.set.insert(flags::DIM_INACTIVE_PANES_FLAG);
         }
@@ -27697,18 +27721,17 @@ impl View for Workspace {
                     .with_opacity(opacity_ratio)
                     .with_corner_radius(window_corner_radius)
                     .enable_animation_with_start_time(self.background_image_animation_start_time);
-                if warpui::SUPPORTS_BACKGROUND_SHADERS
-                    && let Some(shader) = img.shader
+                if let Some(state) = BackgroundImageSettings::as_ref(app).resolve(theme) {
+                    background = background.with_background_effects(state.effects);
+                }
+                if let Some(state) = ThemeSettings::as_ref(app).background_dither(theme)
+                    && state.enabled
                 {
-                    match shader {
-                        BackgroundShader::Dither(config) => {
-                            background = background.with_dither(
-                                config,
-                                self.background_image_animation_start_time,
-                                self.window_id,
-                            );
-                        }
-                    }
+                    background = background.with_dither(
+                        state.config,
+                        self.background_image_animation_start_time,
+                        self.window_id,
+                    );
                 }
                 stack.add_child(Shrinkable::new(1., background.finish()).finish());
                 stack.add_child(workspace.finish());

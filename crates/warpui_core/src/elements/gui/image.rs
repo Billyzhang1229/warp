@@ -16,6 +16,7 @@ use crate::assets::asset_cache::{AssetCache, AssetSource, AssetState};
 use crate::event::DispatchedEvent;
 pub use crate::image_cache::CacheOption;
 use crate::image_cache::{AnimatedImage, AnimatedImageBehavior, FitType, ImageCache, StaticImage};
+use crate::rendering::background_image::BackgroundImageEffects;
 use crate::rendering::dither::DitherConfig;
 use crate::{
     AfterLayoutContext, AppContext, EventContext, LayoutContext, PaintContext, SingletonEntity,
@@ -47,6 +48,7 @@ struct DitherAnimation {
 pub struct Image {
     source: AssetSource,
     dither: Option<DitherAnimation>,
+    background_effects: Option<BackgroundImageEffects>,
     opacity: f32,
     size: Option<Vector2F>,
     origin: Option<Point>,
@@ -91,6 +93,7 @@ impl Image {
         Self {
             source,
             dither: None,
+            background_effects: None,
             opacity: 1.,
             size: None,
             origin: None,
@@ -119,15 +122,18 @@ impl Image {
         window_id: WindowId,
     ) -> Self {
         if config.strength > 0 {
-            // Cropping happens in the shader so its grid stays anchored to the element bounds.
-            self.fit_type = FitType::Stretch;
-            self.animated_image_behavior = AnimatedImageBehavior::FirstFramePreview;
             self.dither = Some(DitherAnimation {
                 config,
                 started_at,
                 window_id,
             });
         }
+        self
+    }
+
+    /// Applies static adjustments without scheduling animation or changing image layout.
+    pub fn with_background_effects(mut self, effects: BackgroundImageEffects) -> Self {
+        self.background_effects = (!effects.is_identity()).then_some(effects);
         self
     }
 
@@ -355,8 +361,14 @@ impl Image {
                 .config
                 .parameters(animation.started_at.elapsed(), ctx.scene.scale_factor())
         });
-        ctx.scene
-            .draw_image_with_dither(rect, image, self.opacity, self.corner_radius, dither);
+        ctx.scene.draw_image_with_effects(
+            rect,
+            image,
+            self.opacity,
+            self.corner_radius,
+            dither,
+            self.background_effects,
+        );
     }
 
     fn paint_animated_image(

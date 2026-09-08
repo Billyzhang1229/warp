@@ -11,23 +11,30 @@ pub(super) struct Uniforms {
     buffer: Buffer,
 }
 
+pub(in crate::rendering::wgpu) fn create_bind_group_layout(
+    device: &wgpu::Device,
+) -> BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("Quad Uniforms Bind Group Layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            // Background masks use the viewport size in the image fragment shader.
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(
+                    mem::size_of::<shader_types::Uniforms>() as wgpu::BufferAddress
+                ),
+            },
+            count: None,
+        }],
+    })
+}
+
 impl Uniforms {
     pub fn new(device: &wgpu::Device) -> Self {
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Quad Uniforms Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(
-                        mem::size_of::<shader_types::Uniforms>() as wgpu::BufferAddress,
-                    ),
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout = create_bind_group_layout(device);
 
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Uniforms buffer"),

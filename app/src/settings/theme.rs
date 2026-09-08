@@ -1,16 +1,13 @@
 use settings::macros::define_settings_group;
 use settings::{RespectUserSyncSetting, Setting, SupportedPlatforms, SyncToCloud};
+use warp_core::ui::theme::{BackgroundShader, WarpTheme};
 use warpui::AppContext;
 use warpui::platform::SystemTheme;
+use warpui::rendering::dither::DitherConfig;
 
 use crate::themes::theme::{RespectSystemTheme, SelectedSystemThemes, ThemeKind};
 
-// Settings group for themes related settings.
-// Note that we store just the information needed to derive the current
-// theme state, which boils down to:
-// ThemeKind: the theme to use when the system theme is off.
-// UseSystemTheme: whether to respect the system theme.
-// SelectedSystemThemes: the themes to use when the system theme is on.
+// Theme selection and global background effect overrides.
 define_settings_group!(ThemeSettings, settings: [
     theme_kind: Theme {
         type: ThemeKind,
@@ -48,7 +45,93 @@ define_settings_group!(ThemeSettings, settings: [
         max_table_depth: 0,
         description: "The themes to use for system light and dark modes.",
     },
+    dither_enabled: DitherEnabled {
+        type: Option<bool>,
+        default: None,
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
+        surface: settings::SettingSurfaces::GUI,
+        private: false,
+        toml_path: "appearance.dither.enabled",
+        description: "Enable dither on background images. Omit to use the theme default.",
+    },
+    dither_pixel_size: DitherPixelSize {
+        type: Option<u8>,
+        default: None,
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
+        surface: settings::SettingSurfaces::GUI,
+        private: false,
+        toml_path: "appearance.dither.pixel_size",
+        description: "Dither grain size in logical pixels, from 1 to 32. Omit to use the theme default.",
+    },
+    dither_strength: DitherStrength {
+        type: Option<u8>,
+        default: None,
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
+        surface: settings::SettingSurfaces::GUI,
+        private: false,
+        toml_path: "appearance.dither.strength",
+        description: "Dither strength from 0 to 100. Omit to use the theme default.",
+    },
+    dither_animated: DitherAnimated {
+        type: Option<bool>,
+        default: None,
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
+        surface: settings::SettingSurfaces::GUI,
+        private: false,
+        toml_path: "appearance.dither.animated",
+        description: "Animate the dither effect. Omit to use the theme default.",
+    },
 ]);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BackgroundDitherState {
+    pub enabled: bool,
+    pub config: DitherConfig,
+}
+
+impl ThemeSettings {
+    pub fn background_dither(&self, theme: &WarpTheme) -> Option<BackgroundDitherState> {
+        if !warpui::SUPPORTS_BACKGROUND_SHADERS {
+            return None;
+        }
+        theme
+            .background_image()
+            .map(|image| self.resolve_dither(image.shader))
+    }
+
+    fn resolve_dither(&self, shader: Option<BackgroundShader>) -> BackgroundDitherState {
+        let defaults = shader
+            .map(|shader| match shader {
+                BackgroundShader::Dither(config) => config,
+            })
+            .unwrap_or_default();
+        BackgroundDitherState {
+            enabled: self.dither_enabled.value().unwrap_or(shader.is_some()),
+            config: self.dither_config(defaults),
+        }
+    }
+
+    /// Resolve optional user overrides against the active theme's shader defaults.
+    pub fn dither_config(&self, theme: DitherConfig) -> DitherConfig {
+        DitherConfig {
+            pixel_size: self
+                .dither_pixel_size
+                .value()
+                .unwrap_or(theme.pixel_size)
+                .clamp(1, 32),
+            strength: self
+                .dither_strength
+                .value()
+                .unwrap_or(theme.strength)
+                .min(100),
+            animated: self.dither_animated.value().unwrap_or(theme.animated),
+        }
+    }
+}
 
 impl Theme {
     fn current_value_is_syncable(&self) -> bool {

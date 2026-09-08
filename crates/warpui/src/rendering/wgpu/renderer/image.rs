@@ -47,9 +47,10 @@ impl Pipeline {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Image Shader"),
             source: wgpu::ShaderSource::Wgsl(Cow::Owned(format!(
-                "{}\n{}",
+                "{}\n{}\n{}",
                 include_str!("../shaders/image_shader.wgsl"),
                 include_str!("../shaders/dither.wgsl"),
+                include_str!("../shaders/background_image.wgsl"),
             ))),
         });
 
@@ -205,6 +206,10 @@ impl Pipeline {
                 },
                 corner_radius,
                 image.dither.unwrap_or([0.0; 4]),
+                image
+                    .background_effects
+                    .map(|effects| effects.parameters())
+                    .unwrap_or([[0.; 4]; 2]),
             ));
             let (texture_id, _) =
                 self.texture_cache
@@ -220,6 +225,7 @@ impl Pipeline {
                 ColorModifier::Icon { color: icon.color },
                 crate::rendering::CornerRadius::default(),
                 [0.0; 4],
+                [[0.; 4]; 2],
             ));
             let (texture_id, _) = self
                 .texture_cache
@@ -386,15 +392,19 @@ mod shaders {
         is_icon: u32,
         corner_radius: Vector4F,
         dither: [f32; 4],
+        background_color: [f32; 4],
+        background_edges: [f32; 4],
     }
 
     impl ImageInstanceData {
-        const ATTRIBS: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
+        const ATTRIBS: [wgpu::VertexAttribute; 7] = wgpu::vertex_attr_array![
             1 => Float32x4,    // Bounds
             2 => Float32x4,    // Color
             3 => Uint32,       // Boolean, image or icon
             4 => Float32x4,    // Corner radius
             5 => Float32x4,    // Dither time, strength, pixel size, motion
+            6 => Float32x4,    // Brightness, contrast, gradient strength and start
+            7 => Float32x4,    // Vignette strength and adjustments enabled
         ];
 
         pub(super) fn new(
@@ -402,10 +412,13 @@ mod shaders {
             color_modifier: ColorModifier,
             corner_radius: CornerRadius,
             dither: [f32; 4],
+            background_effects: [[f32; 4]; 2],
         ) -> Self {
             Self {
                 bounds: bounds.into(),
                 dither,
+                background_color: background_effects[0],
+                background_edges: background_effects[1],
                 is_icon: matches!(color_modifier, ColorModifier::Icon { .. }).into(),
                 color: color_modifier.into(),
                 corner_radius: vec4f(
