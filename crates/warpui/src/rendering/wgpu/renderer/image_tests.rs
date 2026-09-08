@@ -362,7 +362,7 @@ impl ImageTestGpu {
             })
             .unwrap();
         rx.recv_timeout(Duration::from_secs(30)).unwrap().unwrap();
-        let result = buffer.slice(..).get_mapped_range().unwrap().to_vec();
+        let result = buffer.slice(..).get_mapped_range().to_vec();
         buffer.unmap();
         result
     }

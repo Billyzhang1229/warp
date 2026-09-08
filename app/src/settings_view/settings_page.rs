@@ -1393,18 +1393,6 @@ impl<V: warpui::View> PageType<V> {
     /// Uses all-words matching: every word in the query must appear somewhere in the
     /// widget's search terms (but not necessarily contiguously).
     pub(super) fn update_filter(&mut self, query: &str, app: &AppContext) -> MatchData {
-        /// Returns true if every whitespace-delimited word in `query` appears
-        /// somewhere in `terms` (case-insensitive). An empty query matches everything.
-        fn search_terms_match(terms: &str, query: &str) -> bool {
-            if query.is_empty() {
-                return true;
-            }
-            let terms_lower = terms.to_lowercase();
-            query
-                .to_lowercase()
-                .split_whitespace()
-                .all(|word| terms_lower.contains(word))
-        }
         match self {
             Self::Monolith { widget, filter, .. } => {
                 *filter =
@@ -1919,4 +1907,17 @@ pub(super) fn build_reset_button(
             ..Default::default()
         })
         .with_text_label("Reset to default".to_owned())
+}
+
+/// Returns true if every whitespace-delimited word in `query` appears
+/// somewhere in `terms` (case-insensitive). An empty query matches everything.
+pub(super) fn search_terms_match(terms: &str, query: &str) -> bool {
+    if query.is_empty() {
+        return true;
+    }
+    let terms_lower = terms.to_lowercase();
+    query
+        .to_lowercase()
+        .split_whitespace()
+        .all(|word| terms_lower.contains(word))
 }
