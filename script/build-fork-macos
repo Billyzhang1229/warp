@@ -12,6 +12,8 @@ pinned_commit=$(python3 -c 'import json; print(json.load(open(".github/upstream-
 git merge-base --is-ancestor "$pinned_commit" HEAD
 (
     cd app
+    # cargo-bundle queries workspace metadata, including dependencies outside this binary.
+    cargo fetch --locked
     cargo build --locked --release --bin warp-oss --features gui,warpui/experimental-wgpu-renderer
     CARGO_NET_OFFLINE=true cargo bundle --release --format osx --bin warp-oss --features gui,warpui/experimental-wgpu-renderer
 )
