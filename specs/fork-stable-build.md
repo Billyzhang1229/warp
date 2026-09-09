@@ -39,11 +39,15 @@ bash script/build-fork-macos
 
 ## Stable updates
 
-Run **Sync upstream stable** manually in Actions. It selects only published,
+**Sync upstream stable** checks upstream automatically every hour, at minute 17
+UTC, and can also be run manually in Actions. GitHub may delay scheduled runs;
+this is periodic polling rather than an immediate upstream release webhook.
+It selects only published,
 non-draft, non-prerelease tags matching `vN.YYYY.MM.DD.HH.MM.stable_NN` across
 all release pages. Preview, dev and unrelated releases are excluded even when
 GitHub labels them non-prerelease. The selected tag must descend from the pin;
-a moved pinned tag is rejected. There is no scheduled synchronization.
+a moved pinned tag is rejected. When no new stable release is available, the
+sync succeeds without pushing changes or running a build.
 
 A clean merge preserves the custom commits, updates the pin and pushes normally
 to `stable/dither`. Conflicts abort without changing the remote branch. A new
@@ -53,7 +57,8 @@ before using a newly synchronized revision; merges are not automatically
 rolled back if compilation later fails.
 
 Both manual workflows must exist on the fork's default branch for GitHub to
-show their Run workflow buttons. The intended default is `stable/dither`.
+show their Run workflow buttons. Scheduled runs also use the default branch,
+which must remain `stable/dither` for automatic synchronization.
 
 The equivalent local workflow is:
 
